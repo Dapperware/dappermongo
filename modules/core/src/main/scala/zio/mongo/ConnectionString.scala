@@ -6,9 +6,7 @@ import com.mongodb.{ConnectionString => JConnectionString}
 import zio.Config.Secret
 import zio.{Chunk, Config}
 
-import scala.jdk.CollectionConverters.CollectionHasAsScala
-
-class ConnectionString private (inner: JConnectionString) {
+class ConnectionString private (protected[this] val inner: JConnectionString) extends ConnectionStringVersionSpecific {
   private[mongo] def asJava: JConnectionString = inner
 
   def password: Option[Secret] = Option(inner.getPassword).map(pass => Secret(Chunk.fromArray(pass)))
@@ -18,8 +16,6 @@ class ConnectionString private (inner: JConnectionString) {
   def srvMaxHosts: Option[Int] = Option(inner.getSrvMaxHosts)
 
   def srvServiceName: Option[String] = Option(inner.getSrvServiceName)
-
-  def hosts: List[String] = inner.getHosts.asScala.toList
 
   def database: Option[String] = Option(inner.getDatabase)
 

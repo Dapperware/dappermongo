@@ -1,19 +1,24 @@
 package zio.mongo
 
-import zio.{Random, Scope, ZIO, ZLayer}
-import zio.bson.magnolia.DeriveBsonCodec
+import zio.bson.BsonCodec
+import zio.schema.DeriveSchema
+import zio.schema.codec.BsonSchemaCodec
 import zio.test._
+import zio.{Random, Scope, ZIO, ZLayer}
 
 object TransactionSpec extends MongoITSpecDefault {
 
   private val randomCollection =
     ZLayer(Random.nextIntBetween(0, Int.MaxValue).map(value => Collection(s"test-$value")))
 
+  case class Person(name: String, age: Int)
+
+  val schema = DeriveSchema.gen[Person]
+
+  implicit val codec: BsonCodec[Person] = BsonSchemaCodec.bsonCodec(schema)
+
   val spec = suite("Transactions")(
     test("simple - transactionally") {
-      case class Person(str: String, i: Int)
-
-      implicit val personCodec = DeriveBsonCodec.derive[Person]
 
       for {
         client  <- ZIO.service[MongoClient]
@@ -30,8 +35,6 @@ object TransactionSpec extends MongoITSpecDefault {
       } yield assertTrue(p1.isEmpty, p2.size == 2)
     },
     test("simple - scoped") {
-      case class Person(str: String, i: Int)
-      implicit val personCodec = DeriveBsonCodec.derive[Person]
 
       for {
         client  <- ZIO.service[MongoClient]

@@ -1,11 +1,11 @@
 package zio.mongo
 
 import com.mongodb.MongoDriverInformation
-import com.mongodb.reactivestreams.client.{MongoClients, MongoClient => JMongoClient}
-import com.mongodb.reactivestreams.client.ClientSession
-import zio.interop.reactivestreams.publisherToStream
-import zio.stream.ZStream
+import com.mongodb.reactivestreams.client.{ClientSession, MongoClient => JMongoClient, MongoClients}
 import zio._
+import zio.stream.ZStream
+
+import zio.interop.reactivestreams.publisherToStream
 
 trait MongoClient {
 
@@ -37,7 +37,7 @@ object MongoClient {
   def fromSettings(settings: MongoSettings): ZIO[Scope, Throwable, MongoClient] =
     ZIO
       .fromAutoCloseable(ZIO.attempt(MongoClients.create(settings.toJava, driverInformation)))
-      .map(Impl)
+      .map(Impl.apply)
 
   private[mongo] lazy val driverInformation =
     MongoDriverInformation
@@ -49,7 +49,7 @@ object MongoClient {
 
   private case class Impl(client: JMongoClient) extends MongoClient {
     override def database(name: String): ZIO[Any, Throwable, Database] =
-      ZIO.attempt(client.getDatabase(name)).map(Database.Impl)
+      ZIO.attempt(client.getDatabase(name)).map(Database.Impl.apply)
 
     override def listDatabaseNames: ZStream[Any, Throwable, String] =
       ZStream.suspend(client.listDatabaseNames().toZIOStream())

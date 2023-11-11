@@ -1,18 +1,21 @@
 package zio.mongo
 
 import zio._
-import zio.bson.magnolia.{DeriveBsonDecoder, DeriveBsonEncoder}
-import zio.bson.{BsonDecoder, BsonEncoder}
+import zio.bson.BsonCodec
+import zio.schema.codec.BsonSchemaCodec
+import zio.schema.{DeriveSchema, Schema}
 import zio.test.{TestAspect, assertTrue}
 
 object QuerySpec extends MongoITSpecDefault {
+  case class Person(name: String, age: Int)
+
+  object Person {
+    val schema: Schema[Person]            = DeriveSchema.gen[Person]
+    implicit val codec: BsonCodec[Person] = BsonSchemaCodec.bsonCodec(schema)
+  }
 
   val spec = suite("Query")(
     test("insert and find") {
-      case class Person(name: String, age: Int)
-
-      implicit val encoder: BsonEncoder[Person] = DeriveBsonEncoder.derive[Person]
-      implicit val decoder: BsonDecoder[Person] = DeriveBsonDecoder.derive[Person]
 
       for {
         client    <- ZIO.service[MongoClient]
@@ -25,10 +28,6 @@ object QuerySpec extends MongoITSpecDefault {
       } yield assertTrue(result.get == Person("John", 42))
     },
     test("insert, delete and find") {
-      case class Person(name: String, age: Int)
-
-      implicit val encoder: BsonEncoder[Person] = DeriveBsonEncoder.derive[Person]
-      implicit val decoder: BsonDecoder[Person] = DeriveBsonDecoder.derive[Person]
 
       for {
         client    <- ZIO.service[MongoClient]
