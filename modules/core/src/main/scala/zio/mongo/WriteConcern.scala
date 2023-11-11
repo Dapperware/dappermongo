@@ -6,6 +6,8 @@ import zio.{Config, Duration}
 class WriteConcern private (private[mongo] val wrapped: JWriteConcern) {}
 
 object WriteConcern {
+  private[mongo] def apply(inner: JWriteConcern): WriteConcern = new WriteConcern(inner)
+
   sealed trait W extends Product with Serializable
 
   object W {

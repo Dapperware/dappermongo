@@ -51,7 +51,8 @@ object MongoClient {
     override def database(name: String): ZIO[Any, Throwable, Database] =
       ZIO.attempt(client.getDatabase(name)).map(Database.Impl)
 
-    override def listDatabaseNames: ZStream[Any, Throwable, String] = ???
+    override def listDatabaseNames: ZStream[Any, Throwable, String] =
+      ZStream.suspend(client.listDatabaseNames().toZIOStream())
 
     override def startSession: ZIO[Scope, Throwable, Session] =
       ZIO

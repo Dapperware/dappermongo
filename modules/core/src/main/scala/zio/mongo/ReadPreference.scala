@@ -1,11 +1,11 @@
 package zio.mongo
 
 import scala.jdk.CollectionConverters._
-
 import com.mongodb.ReadPreferenceHedgeOptions
+
 import java.util.concurrent.TimeUnit
 import zio.mongo.ReadPreference.Taggable.applySettings
-import zio.{Chunk, Config, Duration}
+import zio.{Chunk, Config, Duration, mongo}
 
 sealed abstract class ReadPreference(private[mongo] val wrapped: com.mongodb.ReadPreference) {
 
@@ -16,6 +16,8 @@ sealed abstract class ReadPreference(private[mongo] val wrapped: com.mongodb.Rea
 }
 
 object ReadPreference {
+
+  private[mongo] def apply(inner: com.mongodb.ReadPreference): ReadPreference = new ReadPreference(inner) {}
 
   abstract class Taggable(
     wrapped: com.mongodb.ReadPreference,

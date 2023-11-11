@@ -6,6 +6,9 @@ import zio.{Chunk, Config}
 class ReadConcern private (private[mongo] val wrapped: JReadConcern)
 
 object ReadConcern {
+
+  private[mongo] def apply(inner: JReadConcern): ReadConcern = new ReadConcern(inner)
+
   def apply(level: Option[Level] = None): ReadConcern =
     level.fold(new ReadConcern(JReadConcern.DEFAULT))(l => new ReadConcern(new JReadConcern(l.wrapped)))
 
