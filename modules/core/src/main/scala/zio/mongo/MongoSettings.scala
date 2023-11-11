@@ -11,7 +11,21 @@ case class MongoSettings(
   retryWrites: Option[Boolean] = None,
   retryReads: Option[Boolean] = None,
   credential: Option[Credential] = None
-)
+) {
+
+  private[mongo] def toJava: com.mongodb.MongoClientSettings = {
+    val builder = com.mongodb.MongoClientSettings.builder()
+    connectionString.foreach(cs => builder.applyConnectionString(cs.asJava))
+    applicationName.foreach(builder.applicationName)
+    readConcern.map(_.wrapped).foreach(builder.readConcern)
+    writeConcern.map(_.wrapped).foreach(builder.writeConcern)
+    readPreference.map(_.wrapped).foreach(builder.readPreference)
+    retryWrites.foreach(builder.retryWrites)
+    retryReads.foreach(builder.retryReads)
+    credential.map(_.wrapped).foreach(builder.credential)
+    builder.build()
+  }
+}
 
 object MongoSettings {
 

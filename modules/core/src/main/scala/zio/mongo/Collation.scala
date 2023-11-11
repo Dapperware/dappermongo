@@ -1,5 +1,7 @@
 package zio.mongo
 
+import com.mongodb.client.model.{Collation => JCollation}
+
 case class Collation(
   locale: Option[String] = None,
   caseLevel: Option[Boolean] = None,
@@ -10,7 +12,21 @@ case class Collation(
   maxVariable: Option[Collation.MaxVariable] = None,
   backwards: Option[Boolean] = None,
   normalization: Option[Boolean] = None
-)
+) {
+  def asJava: JCollation = {
+    val builder = JCollation.builder()
+//    builder.locale(locale.orNull)
+//    builder.caseLevel(caseLevel.orNull)
+//    builder.collationCaseFirst(caseFirst.map(_.toString).orNull)
+//    builder.collationStrength(strength.map(_.value).orNull)
+//    builder.numericOrdering(numericOrdering.orNull)
+//    builder.collationAlternate(alternate.map(_.toString).orNull)
+//    builder.collationMaxVariable(maxVariable.map(_.toString).orNull)
+//    builder.backwards(backwards.orNull)
+//    builder.normalization(normalization.orNull)
+    builder.build()
+  }
+}
 
 object Collation {
   sealed trait CaseFirst

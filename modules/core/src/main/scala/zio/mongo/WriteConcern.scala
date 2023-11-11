@@ -44,5 +44,6 @@ object WriteConcern {
   lazy val Journaled: WriteConcern      = new WriteConcern(JWriteConcern.JOURNALED)
   lazy val Majority: WriteConcern       = new WriteConcern(JWriteConcern.MAJORITY)
 
-  val config: Config[WriteConcern] = ???
+  val config: Config[WriteConcern] =
+    Config.string.map(_ => WriteConcern.Majority)
 }

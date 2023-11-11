@@ -1,7 +1,7 @@
 package zio.mongo
 
-import com.mongodb.{ReadConcernLevel, ReadConcern => JReadConcern}
-import zio.Config
+import com.mongodb.{ReadConcern => JReadConcern, ReadConcernLevel}
+import zio.{Chunk, Config}
 
 class ReadConcern private (private[mongo] val wrapped: JReadConcern)
 
@@ -16,6 +16,14 @@ object ReadConcern {
     case object Majority     extends Level(ReadConcernLevel.MAJORITY)
     case object Linearizable extends Level(ReadConcernLevel.LINEARIZABLE)
     case object Available    extends Level(ReadConcernLevel.AVAILABLE)
+
+    val config: Config[Level] = Config.string.mapOrFail {
+      case "local"        => Right(Local)
+      case "majority"     => Right(Majority)
+      case "linearizable" => Right(Linearizable)
+      case "available"    => Right(Available)
+      case other          => Left(Config.Error.InvalidData(Chunk.empty, s"Invalid read concern level: $other"))
+    }
   }
 
   val Local: ReadConcern        = new ReadConcern(JReadConcern.LOCAL)
@@ -23,6 +31,6 @@ object ReadConcern {
   val Linearizable: ReadConcern = new ReadConcern(JReadConcern.LINEARIZABLE)
   val Available: ReadConcern    = new ReadConcern(JReadConcern.AVAILABLE)
 
-  val config: Config[ReadConcern] = ???
+  val config: Config[ReadConcern] = Level.config.nested("level").optional.map(ReadConcern(_))
 
 }
