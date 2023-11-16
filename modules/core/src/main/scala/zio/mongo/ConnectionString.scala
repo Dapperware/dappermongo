@@ -1,12 +1,12 @@
 package zio.mongo
 
-import scala.util.Try
-
 import com.mongodb.{ConnectionString => JConnectionString}
 import zio.Config.Secret
 import zio.{Chunk, Config}
 
-class ConnectionString private (protected[this] val inner: JConnectionString) extends ConnectionStringVersionSpecific {
+import scala.util.Try
+
+class ConnectionString private (protected val inner: JConnectionString) extends ConnectionStringVersionSpecific {
   private[mongo] def asJava: JConnectionString = inner
 
   def password: Option[Secret] = Option(inner.getPassword).map(pass => Secret(Chunk.fromArray(pass)))

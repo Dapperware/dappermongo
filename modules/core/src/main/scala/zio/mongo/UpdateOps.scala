@@ -1,12 +1,13 @@
 package zio.mongo
 
+import scala.jdk.CollectionConverters._
+
 import com.mongodb.reactivestreams.client.MongoDatabase
 import org.bson.BsonDocument
-import zio.{Chunk, ZIO}
 import zio.bson.BsonEncoder
-import zio.interop.reactivestreams.publisherToStream
+import zio.{Chunk, ZIO}
 
-import scala.jdk.CollectionConverters._
+import zio.interop.reactivestreams.publisherToStream
 
 trait UpdateOps {
 

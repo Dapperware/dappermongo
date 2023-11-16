@@ -1,9 +1,10 @@
 package zio.mongo
 
 import com.mongodb.reactivestreams.client.ClientSession
-import zio.interop.reactivestreams.publisherToStream
 import zio.mongo.Session.TransactionRestorer
 import zio.{Exit, Scope, ZIO}
+
+import zio.interop.reactivestreams.publisherToStream
 
 trait Session {
 
