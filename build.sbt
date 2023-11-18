@@ -1,15 +1,14 @@
 ThisBuild / scalaVersion               := "2.13.12"
 ThisBuild / version                    := "0.1.0-SNAPSHOT"
 ThisBuild / organization               := "com.github.dapperware"
-ThisBuild / organizationName           := "DapperWare"
+ThisBuild / organizationName           := "Dapperware"
 ThisBuild / name                       := "zio-mongo"
 ThisBuild / semanticdbEnabled          := true
 ThisBuild / semanticdbVersion          := scalafixSemanticdb.revision
 ThisBuild / scalafixScalaBinaryVersion := CrossVersion.binaryScalaVersion(scalaVersion.value)
 
 enablePlugins(
-  ZioSbtEcosystemPlugin,
-  ZioSbtCiPlugin
+  ZioSbtEcosystemPlugin
 )
 
 def scalacOptionsVersion(scalaVersion: String) = CrossVersion.partialVersion(scalaVersion) match {
@@ -37,21 +36,21 @@ lazy val core = (project in file("modules/core"))
     scalacOptions := scalacOptionsVersion(scalaVersion.value)
   )
 
-lazy val docs = project
-  .in(file("zio-mongo-docs"))
-  .settings(
-    scalacOptions --= List("-Yno-imports", "-Xfatal-warnings"),
-    publish / skip := true
-  )
-  .settings(
-    moduleName                                 := "zio-redis-docs",
-    projectName                                := (ThisBuild / name).value,
-    mainModuleName                             := (core / moduleName).value,
-    projectStage                               := ProjectStage.Development,
-    ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(core)
-  )
-  .dependsOn(core)
-  .enablePlugins(WebsitePlugin)
+//lazy val docs = project
+//  .in(file("zio-mongo-docs"))
+//  .settings(
+//    scalacOptions --= List("-Yno-imports", "-Xfatal-warnings"),
+//    publish / skip := true
+//  )
+//  .settings(
+//    moduleName                                 := "zio-mongo-docs",
+//    projectName                                := (ThisBuild / name).value,
+//    mainModuleName                             := (core / moduleName).value,
+//    projectStage                               := ProjectStage.Development,
+//    ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(core)
+//  )
+//  .dependsOn(core)
+//  .enablePlugins(WebsitePlugin)
 
 lazy val root = (project in file("."))
   .aggregate(core)
