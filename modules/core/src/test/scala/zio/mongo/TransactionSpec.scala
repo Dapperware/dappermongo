@@ -1,5 +1,4 @@
 package zio.mongo
-
 import zio.bson.{BsonCodec, bsonField}
 import zio.schema.codec.BsonSchemaCodec
 import zio.schema.{DeriveSchema, Schema}
@@ -15,8 +14,10 @@ object TransactionSpec extends MongoITSpecDefault {
 
   object Setter {
     def apply[A](value: A): Setter[A] = new Setter(value)
-    implicit def codec[A: Schema]: BsonCodec[Setter[A]] =
+    implicit def codec[A: Schema]: BsonCodec[Setter[A]] = {
+      val _ = implicitly[Schema[A]] // To satisfy scalafix
       BsonSchemaCodec.bsonCodec(DeriveSchema.gen[Setter[A]])
+    }
   }
 
   case class Person(@bsonField("_id") name: String, age: Int)
@@ -28,9 +29,7 @@ object TransactionSpec extends MongoITSpecDefault {
     case class SetAge(age: Int)
 
     object SetAge {
-
       implicit val schema: Schema[SetAge] = DeriveSchema.gen[SetAge]
-
     }
   }
 

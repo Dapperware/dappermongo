@@ -1,6 +1,12 @@
 package zio.mongo
 
-import com.mongodb.client.model.{Collation => JCollation, CollationAlternate => JCollationAlternate, CollationCaseFirst => JCollationCaseFirst, CollationMaxVariable => JCollationMaxVariable, CollationStrength => JCollationStrength}
+import com.mongodb.client.model.{
+  Collation => JCollation,
+  CollationAlternate => JCollationAlternate,
+  CollationCaseFirst => JCollationCaseFirst,
+  CollationMaxVariable => JCollationMaxVariable,
+  CollationStrength => JCollationStrength
+}
 
 case class Collation(
   locale: Option[String] = None,
