@@ -37,6 +37,22 @@ lazy val core = (project in file("modules/core"))
     scalacOptions := scalacOptionsVersion(scalaVersion.value)
   )
 
+lazy val docs = project
+  .in(file("zio-mongo-docs"))
+  .settings(
+    scalacOptions --= List("-Yno-imports", "-Xfatal-warnings"),
+    publish / skip := true
+  )
+  .settings(
+    moduleName                                 := "zio-redis-docs",
+    projectName                                := (ThisBuild / name).value,
+    mainModuleName                             := (core / moduleName).value,
+    projectStage                               := ProjectStage.Development,
+    ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(core)
+  )
+  .dependsOn(core)
+  .enablePlugins(WebsitePlugin)
+
 lazy val root = (project in file("."))
   .aggregate(core)
   .settings(
