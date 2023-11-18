@@ -1,10 +1,10 @@
 package zio.mongo
 
+import scala.util.Try
+
 import com.mongodb.{ConnectionString => JConnectionString}
 import zio.Config.Secret
 import zio.{Chunk, Config}
-
-import scala.util.Try
 
 class ConnectionString private (protected val inner: JConnectionString) extends ConnectionStringVersionSpecific {
   private[mongo] def asJava: JConnectionString = inner

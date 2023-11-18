@@ -6,6 +6,7 @@ import zio.bson.{BsonDecoder, BsonEncoder}
 import zio.stream.ZStream
 
 import zio.interop.reactivestreams.publisherToStream
+import zio.mongo.internal.PublisherOps
 
 trait QueryOps {
 
@@ -49,10 +50,12 @@ object QueryBuilder {
       ZIO.serviceWithZIO { collection =>
         makePublisher(collection, options, Some(1), 1)
           .first()
-          .toZIOStream(2)
-          .map(doc => BsonDecoder[A].fromBsonValue(doc.toBsonDocument()))
+          .single
+          .map {
+            case Some(doc) => BsonDecoder[A].fromBsonValue(doc.toBsonDocument()).map(Some(_))
+            case None      => Right(None)
+          }
           .absolve
-          .runHead
       }
 
     override def stream[A](limit: Option[Int], chunkSize: Int)(implicit

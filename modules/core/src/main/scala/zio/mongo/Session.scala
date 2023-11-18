@@ -4,7 +4,7 @@ import com.mongodb.reactivestreams.client.ClientSession
 import zio.mongo.Session.TransactionRestorer
 import zio.{Exit, Scope, ZIO}
 
-import zio.interop.reactivestreams.publisherToStream
+import zio.mongo.internal.PublisherOps
 
 trait Session {
 
@@ -15,7 +15,7 @@ trait Session {
 
   def transactionalMask[R, E, A](k: TransactionRestorer => ZIO[R, E, A]): ZIO[R, E, A] =
     ZIO.scoped[R](for {
-      current <- MongoClient.sessionRef.get
+      current <- MongoClient.currentSession.debug("current session")
       restorer = TransactionRestorer(current)
       result  <- transactionScoped.orDie *> k(restorer)
     } yield result)
@@ -31,25 +31,28 @@ object Session {
     def apply(current: Option[ClientSession]): TransactionRestorer =
       new TransactionRestorer {
         override def apply[R, E, A](effect: => ZIO[R, E, A]): ZIO[R, E, A] =
-          MongoClient.sessionRef.locally(current)(effect)
+          MongoClient.stateRef.locallyWith(_.copy(session = current))(effect)
       }
   }
 
   def make(session: ClientSession): ZIO[Scope, Nothing, Session] =
     for {
-      _ <- MongoClient.sessionRef.locallyScoped(Some(session))
+      _ <- MongoClient.stateRef.locallyScopedWith(_.copy(session = Some(session)))
     } yield apply(session)
 
   private[mongo] def apply(session: ClientSession): Session =
     Impl(session)
 
   private case class Impl(session: ClientSession) extends Session {
-    override def transactionScoped: ZIO[Scope, Throwable, Unit] =
+    override def transactionScoped: ZIO[Scope, Throwable, Unit] = {
+      def transacting(t: Boolean) = MongoClient.stateRef.update(_.copy(transacting = t))
+
       ZIO.acquireReleaseExit(
-        ZIO.attempt(session.startTransaction())
+        ZIO.attempt(session.startTransaction()) *> transacting(true)
       ) {
-        case (_, Exit.Success(_)) => session.commitTransaction().toZIOStream(2).runDrain.orDie
-        case (_, Exit.Failure(_)) => session.abortTransaction().toZIOStream(2).runDrain.orDie
+        case (_, Exit.Success(_)) => transacting(false) *> session.commitTransaction().empty.orDie
+        case (_, Exit.Failure(_)) => transacting(false) *> session.abortTransaction().empty.orDie
       }
+    }
   }
 }

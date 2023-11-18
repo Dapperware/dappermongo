@@ -5,7 +5,7 @@ import org.bson.BsonValue
 import zio.ZIO
 import zio.bson.BsonEncoder
 
-import zio.interop.reactivestreams.publisherToStream
+import zio.mongo.internal.PublisherOps
 
 trait InsertOps {
 
@@ -21,7 +21,7 @@ object InsertBuilder {
   private[mongo] class Impl(database: MongoDatabase) extends InsertBuilder[Collection] {
     override def one[U: BsonEncoder](u: U): ZIO[Collection, Throwable, Unit] =
       ZIO.serviceWithZIO { collection =>
-        MongoClient.sessionRef.getWith { session =>
+        MongoClient.currentSession.flatMap { session =>
           val coll = database
             .getCollection(collection.name, classOf[BsonValue])
 
@@ -29,8 +29,7 @@ object InsertBuilder {
 
           session
             .fold(coll.insertOne(value))(coll.insertOne(_, value))
-            .toZIOStream(2)
-            .runHead
+            .single
             .unit
         }
       }

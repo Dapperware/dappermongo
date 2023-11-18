@@ -7,7 +7,7 @@ import org.bson.BsonDocument
 import zio.bson.BsonEncoder
 import zio.{Chunk, ZIO}
 
-import zio.interop.reactivestreams.publisherToStream
+import zio.mongo.internal.PublisherOps
 
 trait UpdateOps {
 
@@ -24,7 +24,7 @@ object UpdateBuilder {
 
     def many[Q: BsonEncoder, U: BsonEncoder](q: Q, updates: Chunk[U]): ZIO[Collection, Throwable, Unit] =
       ZIO.serviceWithZIO { collection =>
-        MongoClient.sessionRef.getWith { session =>
+        MongoClient.currentSession.flatMap { session =>
           val coll = database
             .getCollection(collection.name, classOf[BsonDocument])
 
@@ -33,15 +33,14 @@ object UpdateBuilder {
 
           session
             .fold(coll.updateMany(query, update))(coll.updateMany(_, query, update))
-            .toZIOStream(2)
-            .runHead
+            .single
             .unit
         }
       }
 
     override def one[Q: BsonEncoder, U: BsonEncoder](q: Q, u: U): ZIO[Collection, Throwable, Unit] =
       ZIO.serviceWithZIO { collection =>
-        MongoClient.sessionRef.getWith { session =>
+        MongoClient.currentSession.flatMap { session =>
           val coll = database
             .getCollection(collection.name, classOf[BsonDocument])
 
@@ -50,8 +49,7 @@ object UpdateBuilder {
 
           session
             .fold(coll.updateOne(query, update))(coll.updateOne(_, query, update))
-            .toZIOStream(2)
-            .runHead
+            .single
             .unit
         }
       }

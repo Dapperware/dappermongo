@@ -3,6 +3,7 @@ package zio.mongo
 import com.mongodb.MongoDriverInformation
 import com.mongodb.reactivestreams.client.{ClientSession, MongoClient => JMongoClient, MongoClients}
 import zio._
+import zio.mongo.internal._
 import zio.stream.ZStream
 
 import zio.interop.reactivestreams.publisherToStream
@@ -39,7 +40,7 @@ object MongoClient {
       .fromAutoCloseable(ZIO.attempt(MongoClients.create(settings.toJava, driverInformation)))
       .map(Impl.apply)
 
-  private[mongo] lazy val driverInformation =
+  private lazy val driverInformation =
     MongoDriverInformation
       .builder()
       .driverName("zio-mongo")
@@ -59,13 +60,18 @@ object MongoClient {
         .fromAutoCloseable(
           client
             .startSession()
-            .toZIOStream(2)
-            .runHead
+            .single
             .someOrFailException
         )
         .flatMap(Session.make)
   }
 
-  private[mongo] val sessionRef =
-    Unsafe.unsafe(implicit u => FiberRef.unsafe.make[Option[ClientSession]](None))
+  private[mongo] val stateRef =
+    Unsafe.unsafe(implicit u => FiberRef.unsafe.make[State](State(None, transacting = false)))
+
+  private[mongo] val currentSession: ZIO[Any, Nothing, Option[ClientSession]] =
+    stateRef.get.map(state => state.session.filter(_ => state.transacting))
+
+  private[mongo] case class State(session: Option[ClientSession], transacting: Boolean)
+
 }
