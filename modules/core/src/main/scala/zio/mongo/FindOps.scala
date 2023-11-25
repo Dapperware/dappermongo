@@ -8,44 +8,44 @@ import zio.stream.ZStream
 import zio.interop.reactivestreams.publisherToStream
 import zio.mongo.internal.PublisherOps
 
-trait QueryOps {
+trait FindOps {
 
-  def find[Q: BsonEncoder](q: Q): QueryBuilder[Collection]
+  def find[Q: BsonEncoder](q: Q): FindBuilder[Collection]
 
-  def find[Q: BsonEncoder, P: BsonEncoder](q: Q, p: P): QueryBuilder[Collection]
+  def find[Q: BsonEncoder, P: BsonEncoder](q: Q, p: P): FindBuilder[Collection]
 
-  def findAll: QueryBuilder[Collection]
+  def findAll: FindBuilder[Collection]
 
 }
 
-trait QueryBuilder[-R] {
+trait FindBuilder[-R] {
   def one[A](implicit ev: BsonDecoder[A]): ZIO[R, Throwable, Option[A]]
 
   def stream[A](limit: Option[Int] = None, chunkSize: Int = 101)(implicit ev: BsonDecoder[A]): ZStream[R, Throwable, A]
 
   def explain[A](implicit ev: BsonDecoder[A]): ZIO[R, Throwable, Option[A]]
 
-  def allowDiskUse(allowDiskUse: Boolean): QueryBuilder[R]
+  def allowDiskUse(allowDiskUse: Boolean): FindBuilder[R]
 
-  def collation(collation: Collation): QueryBuilder[R]
+  def collation(collation: Collation): FindBuilder[R]
 
-  def comment(comment: String): QueryBuilder[R]
+  def comment(comment: String): FindBuilder[R]
 
-  def hint(hint: String): QueryBuilder[R]
+  def hint(hint: String): FindBuilder[R]
 
-  def noCursorTimeout(noCursorTimeout: Boolean): QueryBuilder[R]
+  def noCursorTimeout(noCursorTimeout: Boolean): FindBuilder[R]
 
-  def projection[P: BsonEncoder](projection: P): QueryBuilder[R]
+  def projection[P: BsonEncoder](projection: P): FindBuilder[R]
 
-  def skip(skip: Int): QueryBuilder[R]
+  def skip(skip: Int): FindBuilder[R]
 
-  def sort[S: BsonEncoder](sort: S): QueryBuilder[R]
+  def sort[S: BsonEncoder](sort: S): FindBuilder[R]
 }
 
-object QueryBuilder {
+object FindBuilder {
 
   private[mongo] case class Impl(database: MongoDatabase, options: QueryBuilderOptions)
-      extends QueryBuilder[Collection] {
+      extends FindBuilder[Collection] {
     override def one[A](implicit ev: BsonDecoder[A]): ZIO[Collection, Throwable, Option[A]] =
       ZIO.serviceWithZIO { collection =>
         makePublisher(collection, options, Some(1), 1)
@@ -69,30 +69,30 @@ object QueryBuilder {
     override def explain[A](implicit ev: BsonDecoder[A]): ZIO[Collection, Throwable, Option[A]] =
       copy(options = options.copy(explain = Some(true))).one[A]
 
-    override def allowDiskUse(allowDiskUse: Boolean): QueryBuilder[Collection] =
+    override def allowDiskUse(allowDiskUse: Boolean): FindBuilder[Collection] =
       copy(options = options.copy(allowDiskUse = Some(allowDiskUse)))
 
-    override def collation(collation: Collation): QueryBuilder[Collection] =
+    override def collation(collation: Collation): FindBuilder[Collection] =
       copy(options = options.copy(collation = Some(collation)))
 
-    override def comment(comment: String): QueryBuilder[Collection] =
+    override def comment(comment: String): FindBuilder[Collection] =
       copy(options = options.copy(comment = Some(comment)))
 
-    override def hint(hint: String): QueryBuilder[Collection] =
+    override def hint(hint: String): FindBuilder[Collection] =
       copy(options = options.copy(hint = Some(hint)))
 
-    override def noCursorTimeout(noCursorTimeout: Boolean): QueryBuilder[Collection] =
+    override def noCursorTimeout(noCursorTimeout: Boolean): FindBuilder[Collection] =
       copy(options = options.copy(noCursorTimeout = Some(noCursorTimeout)))
 
-    override def projection[P: BsonEncoder](projection: P): QueryBuilder[Collection] =
+    override def projection[P: BsonEncoder](projection: P): FindBuilder[Collection] =
       copy(options =
         options.copy(projection = Some(BsonEncoder[P].toBsonValue(projection).asDocument()))
       ) // TODO This conversion is unsafe
 
-    override def skip(skip: Int): QueryBuilder[Collection] =
+    override def skip(skip: Int): FindBuilder[Collection] =
       copy(options = options.copy(skip = Some(skip)))
 
-    override def sort[S: BsonEncoder](sort: S): QueryBuilder[Collection] =
+    override def sort[S: BsonEncoder](sort: S): FindBuilder[Collection] =
       copy(options =
         options.copy(sort = Some(BsonEncoder[S].toBsonValue(sort).asDocument()))
       ) // TODO This conversion is unsafe

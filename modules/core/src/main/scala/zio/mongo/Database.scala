@@ -2,11 +2,12 @@ package zio.mongo
 
 import com.mongodb.reactivestreams.client.MongoDatabase
 import org.bson.BsonDocument
-import zio.bson.BsonEncoder
+import zio.bson.{BsonDecoder, BsonEncoder}
 import zio.{ZIO, ZLayer}
 
-trait Database extends QueryOps with UpdateOps with InsertOps with DeleteOps {
+trait Database extends FindOps with UpdateOps with InsertOps with DeleteOps {
   def collection(name: String): Collection
+
 }
 
 object Database {
@@ -24,12 +25,12 @@ object Database {
     override def delete: DeleteBuilder[Collection] = new DeleteBuilder.Impl(database)
     override def update: UpdateBuilder[Collection] = new UpdateBuilder.Impl(database)
     override def insert: InsertBuilder[Collection] = new InsertBuilder.Impl(database)
-    override def findAll: QueryBuilder[Collection] = QueryBuilder.Impl(database, QueryBuilderOptions())
-    override def find[Q: BsonEncoder](q: Q): QueryBuilder[Collection] =
-      QueryBuilder.Impl(database, QueryBuilderOptions(filter = Some(BsonEncoder[Q].toBsonValue(q).asDocument())))
+    override def findAll: FindBuilder[Collection]  = FindBuilder.Impl(database, QueryBuilderOptions())
+    override def find[Q: BsonEncoder](q: Q): FindBuilder[Collection] =
+      FindBuilder.Impl(database, QueryBuilderOptions(filter = Some(BsonEncoder[Q].toBsonValue(q).asDocument())))
 
-    override def find[Q: BsonEncoder, P: BsonEncoder](q: Q, p: P): QueryBuilder[Collection] =
-      QueryBuilder.Impl(
+    override def find[Q: BsonEncoder, P: BsonEncoder](q: Q, p: P): FindBuilder[Collection] =
+      FindBuilder.Impl(
         database,
         QueryBuilderOptions(
           filter = Some(BsonEncoder[Q].toBsonValue(q).asDocument()),
