@@ -69,11 +69,11 @@ jobs:
       fail-fast: false
       matrix:
         java: ['11', '17', '21']
-        mongo: ['5.0.2', '6.0.11', '7.0.1']
+        mongodb: ['5.0.2', '6.0.11', '7.0.1']
     continue-on-error: false
     env:
       MONGO_CI: true
-      MONGO_VERSION: ${{ matrix.mongo }}
+      MONGO_VERSION: ${{ matrix.mongodb }}
     steps:
     - name: Install libuv
       run: sudo apt-get update && sudo apt-get install -y libuv1-dev
