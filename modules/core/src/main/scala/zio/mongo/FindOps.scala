@@ -2,12 +2,11 @@ package zio.mongo
 
 import com.mongodb.reactivestreams.client.MongoDatabase
 import org.bson.RawBsonDocument
-import reactivemongo.api.bson.BSONDocumentWriter
 import zio.ZIO
 import zio.bson._
-import zio.stream.ZStream
 import zio.interop.reactivestreams.publisherToStream
 import zio.mongo.internal.PublisherOps
+import zio.stream.ZStream
 
 trait FindOps {
 
@@ -86,17 +85,13 @@ object FindBuilder {
       copy(options = options.copy(noCursorTimeout = Some(noCursorTimeout)))
 
     override def projection[P: BsonEncoder](projection: P): FindBuilder[Collection] =
-      copy(options =
-        options.copy(projection = Some(BsonEncoder[P].toBsonValue(projection).asDocument()))
-      ) // TODO This conversion is unsafe
+      copy(options = options.copy(projection = Some(() => BsonEncoder[P].toBsonValue(projection).asDocument())))
 
     override def skip(skip: Int): FindBuilder[Collection] =
       copy(options = options.copy(skip = Some(skip)))
 
     override def sort[S: BsonEncoder](sort: S): FindBuilder[Collection] =
-      copy(options =
-        options.copy(sort = Some(BsonEncoder[S].toBsonValue(sort).asDocument()))
-      ) // TODO This conversion is unsafe
+      copy(options = options.copy(sort = Some(() => BsonEncoder[S].toBsonValue(sort).asDocument())))
 
     private def makePublisher(
       collection: Collection,
@@ -105,12 +100,15 @@ object FindBuilder {
       batchSize: Int
     ) = {
       val underlying = database.getCollection(collection.name, classOf[RawBsonDocument])
-      val builder    = options.filter.fold(underlying.find())(filter => underlying.find(filter))
+      val sort       = options.sort.map(_.apply())
+      val projection = options.projection.map(_.apply())
+      val filter     = options.filter.map(_.apply())
+      val builder    = filter.fold(underlying.find())(underlying.find)
 
       builder
-        .sort(options.sort.orNull)
-        .projection(options.projection.orNull)
-        .filter(options.filter.orNull)
+        .sort(sort.orNull)
+        .projection(projection.orNull)
+        .filter(filter.orNull)
         .collation(options.collation.map(_.asJava).orNull)
         .comment(options.comment.orNull)
         .hintString(options.hint.orNull)

@@ -1,12 +1,16 @@
 package zio.mongo
 
-import com.mongodb.client.model.CreateIndexOptions
+import com.mongodb.client.model.{CreateIndexOptions, IndexModel, Indexes}
 import com.mongodb.reactivestreams.client.MongoDatabase
-import org.bson.BsonDocument
-import zio.{Chunk, ZIO}
+import org.bson.conversions.Bson
+import zio.ZIO
 import zio.bson.BsonDecoder
 import zio.interop.reactivestreams.publisherToStream
+import zio.mongo.internal.PublisherOps
 import zio.stream.ZStream
+
+import java.util
+import scala.jdk.CollectionConverters._
 
 trait IndexOps {
 
@@ -18,7 +22,7 @@ trait IndexBuilder[-R] {
 
   def list[T: BsonDecoder]: ZStream[R, Throwable, T]
 
-  def create(indexes: List[Index], options: CreateIndexOptions): ZIO[R, Throwable, String]
+  def create(indexes: List[Index], options: CreateIndexOptions): ZIO[R, Throwable, Unit]
 
   def drop(indexName: String): ZIO[R, Throwable, Unit]
 
@@ -40,46 +44,70 @@ object IndexBuilder {
                    .absolve
       } yield index
 
-    override def create(indexes: List[Index], options: CreateIndexOptions): ZIO[Collection, Throwable, String] =
+    override def create(indexes: List[Index], options: CreateIndexOptions): ZIO[Collection, Throwable, Unit] =
       for {
         session    <- MongoClient.currentSession
         collection <- ZIO.service[Collection]
         jcollection = database.getCollection(collection.name)
-//        _ <-
-//          session
-//            .fold(jcollection.createIndexes(indexes.map(_.toBsonDocument()), options))(
-//              jcollection.createIndexes(_, indexes.map(_.toBsonDocument()), options)
-//            )
-//            .empty
-      } yield ""
+        jIndexes    = indexes.map(toIndexModel).asJava
+        _ <- (session
+               .fold(jcollection.createIndexes(jIndexes, options))(
+                 jcollection.createIndexes(_, jIndexes, options)
+               ))
+               .empty
+      } yield ()
 
     override def drop(indexName: String): ZIO[Collection, Throwable, Unit] =
-      ???
+      for {
+        session    <- MongoClient.currentSession
+        collection <- ZIO.service[Collection]
+        jcollection = database.getCollection(collection.name)
+        _ <- (session
+               .fold(jcollection.dropIndex(indexName))(
+                 jcollection.dropIndex(_, indexName)
+               ))
+               .empty
+      } yield ()
 
     override def dropAll(): ZIO[Collection, Throwable, Unit] =
-      ???
+      for {
+        session    <- MongoClient.currentSession
+        collection <- ZIO.service[Collection]
+        jcollection = database.getCollection(collection.name)
+        _          <- (session.fold(jcollection.dropIndexes())(jcollection.dropIndexes)).empty
+      } yield ()
+
+    private def toIndexModel(index: Index): IndexModel = {
+      def go(i: Index): Bson = i match {
+        case Index.Ascending(fields)   => Indexes.ascending(fields: _*)
+        case Index.Descending(fields)  => Indexes.descending(fields: _*)
+        case Index.Hashed(field)       => Indexes.hashed(field)
+        case Index.Text(field)         => Indexes.text(field)
+        case Index.Geo2D(field)        => Indexes.geo2d(field)
+        case Index.Geo2DSphere(fields) => Indexes.geo2dsphere(fields: _*)
+        case Index.Compound(indexes) =>
+          Indexes.compoundIndex(new util.ArrayList[Bson](indexes.map(go).asJavaCollection))
+      }
+
+      new IndexModel(go(index))
+    }
   }
 }
 
-sealed trait Index {
-  def toBsonDocument(): BsonDocument
-}
+sealed trait Index
 
 object Index {
-  case class Ascending(fields: List[String]) extends Index {
-    override def toBsonDocument(): BsonDocument =
-      new BsonDocument(fields.mkString("_", "_", "_1"), new BsonDocument())
-  }
+  case class Ascending(fields: List[String]) extends Index
 
-//  case class Descending(fields: List[String]) extends Index
-//
-//  case class Hashed(fields: String) extends Index
-//
-//  case class Text(field: String) extends Index
-//
-//  case class Geo2D(field: String) extends Index
-//
-//  case class Geo2DSphere(fields: List[String]) extends Index
-//
-//  case class GeoHaystack(field: String, additionalIndexes: List[Index]) extends Index
+  case class Descending(fields: List[String]) extends Index
+
+  case class Hashed(field: String) extends Index
+
+  case class Text(field: String) extends Index
+
+  case class Geo2D(field: String) extends Index
+
+  case class Geo2DSphere(fields: List[String]) extends Index
+
+  case class Compound(indexes: List[Index]) extends Index
 }

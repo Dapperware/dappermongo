@@ -8,10 +8,10 @@ object Container {
 
   private case class Settings(ci: Boolean, version: String)
 
-  object Settings {
+  private object Settings {
     val config: Config[Settings] = (
-      Config.boolean("ci") zip
-        Config.string("version")
+      Config.boolean("ci").withDefault(false) zip
+        Config.string("version").withDefault("6.0.2")
     ).map((Settings.apply _).tupled)
   }
 
@@ -27,7 +27,7 @@ object Container {
   /**
    * A layer that is backed by a dockerized mongo instance using test containers
    */
-  val testContainer: ZLayer[Any, Nothing, MongoDBContainer] =
+  val testContainer: ZLayer[Any, Config.Error, MongoDBContainer] =
     ZLayer.scoped(ZIO.config(Settings.config).map(_.version).flatMap(make))
 
   /**
@@ -36,7 +36,7 @@ object Container {
   val ci: ULayer[MongoSettings] =
     ZLayer.succeed(MongoSettings(Some(ConnectionString.unsafe("mongodb://localhost:27017"))))
 
-  val live: ZLayer[Any, Config.Error, Nothing] = ZLayer(for {
+  val live: ZLayer[Any, Config.Error, MongoSettings] = ZLayer(for {
     c <- ZIO.config(Settings.config)
   } yield if (c.ci) ci else (testContainer >>> settings)).flatten
 

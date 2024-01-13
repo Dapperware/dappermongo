@@ -5,9 +5,8 @@ import org.bson.BsonDocument
 import zio.bson.BsonEncoder
 import zio.{ZIO, ZLayer}
 
-trait Database extends FindOps with UpdateOps with InsertOps with DeleteOps {
+trait Database extends FindOps with UpdateOps with InsertOps with DeleteOps with IndexOps with DistinctOps {
   def collection(name: String): Collection
-
 }
 
 object Database {
@@ -27,25 +26,29 @@ object Database {
     override def insert: InsertBuilder[Collection] = new InsertBuilder.Impl(database)
     override def findAll: FindBuilder[Collection]  = FindBuilder.Impl(database, QueryBuilderOptions())
     override def find[Q: BsonEncoder](q: Q): FindBuilder[Collection] =
-      FindBuilder.Impl(database, QueryBuilderOptions(filter = Some(BsonEncoder[Q].toBsonValue(q).asDocument())))
+      FindBuilder.Impl(database, QueryBuilderOptions(filter = Some(() => BsonEncoder[Q].toBsonValue(q).asDocument())))
 
     override def find[Q: BsonEncoder, P: BsonEncoder](q: Q, p: P): FindBuilder[Collection] =
       FindBuilder.Impl(
         database,
         QueryBuilderOptions(
-          filter = Some(BsonEncoder[Q].toBsonValue(q).asDocument()),
-          projection = Some(BsonEncoder[P].toBsonValue(p).asDocument())
+          filter = Some(() => BsonEncoder[Q].toBsonValue(q).asDocument()),
+          projection = Some(() => BsonEncoder[P].toBsonValue(p).asDocument())
         )
       )
+
+    override def index: IndexBuilder[Collection] = IndexBuilder.Impl(database)
+
+    override def distinct(field: String): DistinctBuilder[Collection] = DistinctBuilder(database, field)
 
   }
 
 }
 
 private case class QueryBuilderOptions(
-  filter: Option[BsonDocument] = None,
-  projection: Option[BsonDocument] = None,
-  sort: Option[BsonDocument] = None,
+  filter: Option[() => BsonDocument] = None,
+  projection: Option[() => BsonDocument] = None,
+  sort: Option[() => BsonDocument] = None,
   skip: Option[Int] = None,
   allowDiskUse: Option[Boolean] = None,
   collation: Option[Collation] = None,
