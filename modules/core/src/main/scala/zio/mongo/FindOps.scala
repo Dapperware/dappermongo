@@ -4,9 +4,10 @@ import com.mongodb.reactivestreams.client.MongoDatabase
 import org.bson.RawBsonDocument
 import zio.ZIO
 import zio.bson._
+import zio.stream.ZStream
+
 import zio.interop.reactivestreams.publisherToStream
 import zio.mongo.internal.PublisherOps
-import zio.stream.ZStream
 
 trait FindOps {
 

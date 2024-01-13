@@ -1,13 +1,13 @@
 package zio.mongo
 
 import com.mongodb.reactivestreams.client.{ClientSession, DistinctPublisher, MongoDatabase}
+import java.util.concurrent.TimeUnit
 import org.bson.RawBsonDocument
 import zio.bson.{BsonDecoder, BsonEncoder}
-import zio.interop.reactivestreams.publisherToStream
 import zio.stream.ZSink
 import zio.{Chunk, Duration, ZIO}
 
-import java.util.concurrent.TimeUnit
+import zio.interop.reactivestreams.publisherToStream
 
 trait DistinctOps {
 

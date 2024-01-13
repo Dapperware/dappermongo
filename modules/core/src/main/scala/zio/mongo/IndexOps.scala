@@ -1,16 +1,17 @@
 package zio.mongo
 
+import scala.jdk.CollectionConverters._
+
 import com.mongodb.client.model.{CreateIndexOptions, IndexModel, Indexes}
 import com.mongodb.reactivestreams.client.MongoDatabase
+import java.util
 import org.bson.conversions.Bson
 import zio.ZIO
 import zio.bson.BsonDecoder
-import zio.interop.reactivestreams.publisherToStream
-import zio.mongo.internal.PublisherOps
 import zio.stream.ZStream
 
-import java.util
-import scala.jdk.CollectionConverters._
+import zio.interop.reactivestreams.publisherToStream
+import zio.mongo.internal.PublisherOps
 
 trait IndexOps {
 

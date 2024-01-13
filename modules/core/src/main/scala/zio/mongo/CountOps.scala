@@ -1,12 +1,12 @@
 package zio.mongo
 
 import com.mongodb.reactivestreams.client.MongoDatabase
-import org.bson.{BsonDocument, BsonValue}
-import zio.{Duration, ZIO}
-import zio.bson.BsonEncoder
-import zio.mongo.internal.PublisherOps
-
 import java.util.concurrent.TimeUnit
+import org.bson.{BsonDocument, BsonValue}
+import zio.bson.BsonEncoder
+import zio.{Duration, ZIO}
+
+import zio.mongo.internal.PublisherOps
 
 trait CountOps {
 

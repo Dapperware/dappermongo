@@ -4,8 +4,9 @@ import com.mongodb.reactivestreams.client.MongoDatabase
 import org.bson.RawBsonDocument
 import zio.ZIO
 import zio.bson.BsonEncoder
-import zio.mongo.internal.PublisherOps
 import zio.mongo.results.DeleteResult
+
+import zio.mongo.internal.PublisherOps
 
 trait DeleteOps {
 
