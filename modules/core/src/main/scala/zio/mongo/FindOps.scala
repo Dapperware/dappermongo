@@ -1,10 +1,11 @@
 package zio.mongo
 
 import com.mongodb.reactivestreams.client.MongoDatabase
+import org.bson.RawBsonDocument
+import reactivemongo.api.bson.BSONDocumentWriter
 import zio.ZIO
-import zio.bson.{BsonDecoder, BsonEncoder}
+import zio.bson._
 import zio.stream.ZStream
-
 import zio.interop.reactivestreams.publisherToStream
 import zio.mongo.internal.PublisherOps
 
@@ -52,7 +53,7 @@ object FindBuilder {
           .first()
           .single
           .map {
-            case Some(doc) => BsonDecoder[A].fromBsonValue(doc.toBsonDocument()).map(Some(_))
+            case Some(doc) => BsonDecoder[A].fromBsonValue(doc).map(Some(_))
             case None      => Right(None)
           }
           .absolve
@@ -64,7 +65,7 @@ object FindBuilder {
       (for {
         collection <- ZStream.service[Collection]
         doc        <- makePublisher(collection, options, limit, chunkSize).toZIOStream(chunkSize)
-      } yield BsonDecoder[A].fromBsonValue(doc.toBsonDocument())).absolve
+      } yield BsonDecoder[A].fromBsonValue(doc)).absolve
 
     override def explain[A](implicit ev: BsonDecoder[A]): ZIO[Collection, Throwable, Option[A]] =
       copy(options = options.copy(explain = Some(true))).one[A]
@@ -103,7 +104,7 @@ object FindBuilder {
       limit: Option[Int],
       batchSize: Int
     ) = {
-      val underlying = database.getCollection(collection.name)
+      val underlying = database.getCollection(collection.name, classOf[RawBsonDocument])
       val builder    = options.filter.fold(underlying.find())(filter => underlying.find(filter))
 
       builder

@@ -13,7 +13,7 @@ object ClientSpec extends ZIOSpecDefault {
       ZIO.scoped(MongoClient.scoped.either.map(assert(_)(isRight)))
     }
   ).provide(
-    Container.live,
+    Container.testContainer,
     Container.settings
   ) @@ TestAspect.silentLogging @@ TestAspect.timeout(60.seconds)
 

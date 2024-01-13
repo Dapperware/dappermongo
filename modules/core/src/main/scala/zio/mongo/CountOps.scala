@@ -83,7 +83,7 @@ object CountBuilder {
           session
             .fold(coll.countDocuments(query, countOptions))(coll.countDocuments(_, query, countOptions))
             .single
-            .map(_.getOrElse(0L)) // TODO should this throw?
+            .map(_.fold(0L)(Long.box(_))) // TODO should this throw?
         }
       }
   }

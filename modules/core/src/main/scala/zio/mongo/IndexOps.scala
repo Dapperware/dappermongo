@@ -40,18 +40,18 @@ object IndexBuilder {
                    .absolve
       } yield index
 
-    override def create(indexes: List[Index], options: CreateIndexOptions): ZIO[Collection, Throwable, Unit] =
+    override def create(indexes: List[Index], options: CreateIndexOptions): ZIO[Collection, Throwable, String] =
       for {
         session    <- MongoClient.currentSession
         collection <- ZIO.service[Collection]
         jcollection = database.getCollection(collection.name)
-        _ <-
-          session
-            .fold(jcollection.createIndexes(indexes.map(_.toBsonDocument()), options))(
-              jcollection.createIndexes(_, indexes.map(_.toBsonDocument()), options)
-            )
-            .empty
-      } yield ()
+//        _ <-
+//          session
+//            .fold(jcollection.createIndexes(indexes.map(_.toBsonDocument()), options))(
+//              jcollection.createIndexes(_, indexes.map(_.toBsonDocument()), options)
+//            )
+//            .empty
+      } yield ""
 
     override def drop(indexName: String): ZIO[Collection, Throwable, Unit] =
       ???
@@ -66,17 +66,20 @@ sealed trait Index {
 }
 
 object Index {
-  case class Ascending(fields: List[String]) extends Index
+  case class Ascending(fields: List[String]) extends Index {
+    override def toBsonDocument(): BsonDocument =
+      new BsonDocument(fields.mkString("_", "_", "_1"), new BsonDocument())
+  }
 
-  case class Descending(fields: List[String]) extends Index
-
-  case class Hashed(fields: String) extends Index
-
-  case class Text(field: String) extends Index
-
-  case class Geo2D(field: String) extends Index
-
-  case class Geo2DSphere(fields: List[String]) extends Index
-
-  case class GeoHaystack(field: String, additionalIndexes: List[Index]) extends Index
+//  case class Descending(fields: List[String]) extends Index
+//
+//  case class Hashed(fields: String) extends Index
+//
+//  case class Text(field: String) extends Index
+//
+//  case class Geo2D(field: String) extends Index
+//
+//  case class Geo2DSphere(fields: List[String]) extends Index
+//
+//  case class GeoHaystack(field: String, additionalIndexes: List[Index]) extends Index
 }

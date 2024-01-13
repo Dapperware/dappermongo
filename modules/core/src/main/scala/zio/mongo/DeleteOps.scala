@@ -1,11 +1,10 @@
 package zio.mongo
 
 import com.mongodb.reactivestreams.client.MongoDatabase
-import org.bson.BsonDocument
+import org.bson.{BsonDocument, RawBsonDocument}
 import zio.ZIO
 import zio.bson.BsonEncoder
 import zio.mongo.results.DeleteResult
-
 import zio.mongo.internal.PublisherOps
 
 trait DeleteOps {
@@ -26,7 +25,7 @@ object DeleteBuilder {
     override def many[U: BsonEncoder](u: U): ZIO[Collection, Throwable, DeleteResult] =
       ZIO.serviceWithZIO { collection =>
         MongoClient.currentSession.flatMap { session =>
-          val coll  = database.getCollection(collection.name, classOf[BsonDocument])
+          val coll  = database.getCollection(collection.name, classOf[RawBsonDocument])
           val query = BsonEncoder[U].toBsonValue(u).asDocument()
 
           session
@@ -39,7 +38,7 @@ object DeleteBuilder {
     override def one[U: BsonEncoder](u: U): ZIO[Collection, Throwable, DeleteResult] =
       ZIO.serviceWithZIO { collection =>
         MongoClient.currentSession.flatMap { session =>
-          val coll  = database.getCollection(collection.name, classOf[BsonDocument])
+          val coll  = database.getCollection(collection.name, classOf[RawBsonDocument])
           val query = BsonEncoder[U].toBsonValue(u).asDocument()
 
           session

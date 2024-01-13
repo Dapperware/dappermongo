@@ -13,12 +13,7 @@ trait Session {
   def transactional[R, E, A](zio: => ZIO[R, E, A]): ZIO[R, E, A] =
     ZIO.scoped[R](transactionScoped.orDie *> zio)
 
-  def transactionalMask[R, E, A](k: TransactionRestorer => ZIO[R, E, A]): ZIO[R, E, A] =
-    ZIO.scoped[R](for {
-      current <- MongoClient.currentSession.debug("current session")
-      restorer = TransactionRestorer(current)
-      result  <- transactionScoped.orDie *> k(restorer)
-    } yield result)
+  def transactionalMask[R, E, A](k: TransactionRestorer => ZIO[R, E, A]): ZIO[R, E, A]
 
 }
 
@@ -54,5 +49,12 @@ object Session {
         case (_, Exit.Failure(_)) => transacting(false) *> session.abortTransaction().empty.orDie
       }
     }
+
+    override def transactionalMask[R, E, A](k: TransactionRestorer => ZIO[R, E, A]): ZIO[R, E, A] =
+      ZIO.scoped[R](for {
+        current <- MongoClient.currentSession.debug("current session")
+        restorer = TransactionRestorer(current)
+        result  <- transactionScoped.orDie *> k(restorer)
+      } yield result)
   }
 }

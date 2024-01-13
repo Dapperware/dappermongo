@@ -2,7 +2,7 @@ ThisBuild / scalaVersion               := "2.13.12"
 ThisBuild / version                    := "0.1.0-SNAPSHOT"
 ThisBuild / organization               := "com.github.dapperware"
 ThisBuild / organizationName           := "Dapperware"
-ThisBuild / name                       := "zio-mongo"
+ThisBuild / name                       := "dappermongo"
 ThisBuild / semanticdbEnabled          := true
 ThisBuild / semanticdbVersion          := scalafixSemanticdb.revision
 ThisBuild / scalafixScalaBinaryVersion := CrossVersion.binaryScalaVersion(scalaVersion.value)
@@ -20,16 +20,17 @@ lazy val core = (project in file("modules/core"))
   .settings(
     name := "core",
     libraryDependencies ++= Seq(
-      "dev.zio"      %% "zio"                            % "2.0.18",
-      "dev.zio"      %% "zio-streams"                    % "2.0.18",
-      "dev.zio"      %% "zio-interop-reactivestreams"    % "2.0.2",
-      "dev.zio"      %% "zio-bson"                       % "1.0.5",
-      "org.mongodb"   % "mongodb-driver-reactivestreams" % "4.11.0",
-      "dev.zio"      %% "zio-schema-bson"                % "0.4.15"  % Test,
-      "dev.zio"      %% "zio-schema-derivation"          % "0.4.15"  % Test,
-      "dev.zio"      %% "zio-test"                       % "2.0.18"  % Test,
-      "dev.zio"      %% "zio-test-sbt"                   % "2.0.18"  % Test,
-      "com.dimafeng" %% "testcontainers-scala-mongodb"   % "0.40.12" % Test
+      "dev.zio"           %% "zio"                            % "2.0.21",
+      "dev.zio"           %% "zio-streams"                    % "2.0.21",
+      "dev.zio"           %% "zio-interop-reactivestreams"    % "2.0.2",
+      "dev.zio"           %% "zio-bson"                       % "1.0.5",
+      "org.mongodb"        % "mongodb-driver-reactivestreams" % "4.11.0",
+      "org.reactivemongo" %% "reactivemongo-bson-msb-compat"  % "1.1.0-RC12",
+      "dev.zio"           %% "zio-schema-bson"                % "0.4.17"  % Test,
+      "dev.zio"           %% "zio-schema-derivation"          % "0.4.17"  % Test,
+      "dev.zio"           %% "zio-test"                       % "2.0.21"  % Test,
+      "dev.zio"           %% "zio-test-sbt"                   % "2.0.21"  % Test,
+      "com.dimafeng"      %% "testcontainers-scala-mongodb"   % "0.40.12" % Test
     ),
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
     Test / fork   := true,

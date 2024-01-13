@@ -2,7 +2,7 @@ package zio.mongo
 
 import com.mongodb.reactivestreams.client.MongoDatabase
 import org.bson.BsonDocument
-import zio.bson.{BsonDecoder, BsonEncoder}
+import zio.bson.BsonEncoder
 import zio.{ZIO, ZLayer}
 
 trait Database extends FindOps with UpdateOps with InsertOps with DeleteOps {
