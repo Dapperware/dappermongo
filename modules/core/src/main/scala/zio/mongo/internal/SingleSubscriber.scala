@@ -1,8 +1,10 @@
 package zio.mongo.internal
 
-import java.util.concurrent.atomic.AtomicBoolean
+import dappermongo.internal.InterruptibleSubscriber
 import org.reactivestreams.Subscription
 import zio.{Promise, Scope, Task, UIO, URIO, Unsafe, ZIO}
+
+import java.util.concurrent.atomic.AtomicBoolean
 
 object SingleSubscriber {
 
