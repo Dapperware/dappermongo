@@ -34,7 +34,11 @@ trait CountBuilder[-R] {
 }
 
 object CountBuilder {
-  case class Options(
+
+  def apply(database: MongoDatabase): CountBuilder[Collection] =
+    Impl(database, Options())
+
+  private case class Options(
     filter: Option[() => BsonDocument] = None,
     limit: Option[Int] = None,
     maxTime: Option[Duration] = None,

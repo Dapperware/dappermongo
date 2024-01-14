@@ -1,7 +1,7 @@
 package dappermongo
 
 import org.reactivestreams.Publisher
-import zio.mongo.internal.{EmptySubscriber, SingleSubscriber}
+import zio.interop.reactivestreams.internal.{EmptySubscriber, SingleSubscriber}
 import zio.{Task, ZIO}
 
 package object internal {

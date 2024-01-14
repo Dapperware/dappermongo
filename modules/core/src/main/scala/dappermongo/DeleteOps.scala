@@ -20,7 +20,11 @@ trait DeleteBuilder[-R] {
 }
 
 object DeleteBuilder {
-  private[dappermongo] class Impl(database: MongoDatabase) extends DeleteBuilder[Collection] {
+
+  def apply(database: MongoDatabase): DeleteBuilder[Collection] =
+    new Impl(database)
+
+  private class Impl(database: MongoDatabase) extends DeleteBuilder[Collection] {
 
     override def many[U: BsonEncoder](u: U): ZIO[Collection, Throwable, Result[Deleted]] =
       ZIO.serviceWithZIO { collection =>

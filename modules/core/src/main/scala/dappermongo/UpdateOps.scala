@@ -22,7 +22,10 @@ trait UpdateBuilder[-R] {
 }
 
 object UpdateBuilder {
-  private[dappermongo] class Impl(database: MongoDatabase) extends UpdateBuilder[Collection] {
+
+  def apply(database: MongoDatabase): UpdateBuilder[Collection] =
+    new Impl(database)
+  private class Impl(database: MongoDatabase) extends UpdateBuilder[Collection] {
 
     def many[Q: BsonEncoder, U: BsonEncoder](q: Q, updates: Chunk[U]): ZIO[Collection, Throwable, Result[Updated]] =
       ZIO.serviceWithZIO { collection =>

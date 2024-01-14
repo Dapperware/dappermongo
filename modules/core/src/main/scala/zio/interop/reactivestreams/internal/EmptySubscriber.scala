@@ -1,6 +1,5 @@
-package zio.mongo.internal
+package zio.interop.reactivestreams.internal
 
-import dappermongo.internal.InterruptibleSubscriber
 import org.reactivestreams.Subscription
 import zio.{Promise, Scope, Task, UIO, URIO, Unsafe, ZIO}
 
@@ -14,7 +13,7 @@ object EmptySubscriber {
                     )(_.poll.flatMap(_.fold(ZIO.unit)(_.foldZIO(_ => ZIO.unit, sub => ZIO.succeed(sub.cancel())))))
     promise <- Promise.make[Throwable, Unit]
   } yield new InterruptibleSubscriber[A] {
-    private val shouldCancel = new AtomicBoolean
+    private val shouldCancel = new AtomicBoolean(false)
 
     override def interrupt: UIO[Unit] = {
       shouldCancel.set(true)

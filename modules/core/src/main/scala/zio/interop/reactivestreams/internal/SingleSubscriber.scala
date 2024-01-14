@@ -1,6 +1,5 @@
-package zio.mongo.internal
+package zio.interop.reactivestreams.internal
 
-import dappermongo.internal.InterruptibleSubscriber
 import org.reactivestreams.Subscription
 import zio.{Promise, Scope, Task, UIO, URIO, Unsafe, ZIO}
 

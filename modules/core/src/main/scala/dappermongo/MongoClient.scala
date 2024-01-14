@@ -69,7 +69,7 @@ object MongoClient {
 
   private case class Impl(client: JMongoClient) extends MongoClient {
     override def database(name: String): ZIO[Any, Throwable, Database] =
-      ZIO.attempt(client.getDatabase(name)).map(Database.Impl.apply)
+      ZIO.attempt(client.getDatabase(name)).map(Database.apply)
 
     override def listDatabaseNames: ZStream[Any, Throwable, String] =
       ZStream.suspend(client.listDatabaseNames().toZIOStream())

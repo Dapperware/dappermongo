@@ -18,7 +18,11 @@ trait InsertBuilder[-R] {
 }
 
 object InsertBuilder {
-  private[dappermongo] class Impl(database: MongoDatabase) extends InsertBuilder[Collection] {
+
+  def apply(database: MongoDatabase): InsertBuilder[Collection] =
+    new Impl(database)
+
+  private class Impl(database: MongoDatabase) extends InsertBuilder[Collection] {
     override def one[U: BsonEncoder](u: U): ZIO[Collection, Throwable, Result[InsertedOne]] =
       ZIO.serviceWithZIO { collection =>
         MongoClient.currentSession.flatMap { session =>

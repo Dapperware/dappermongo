@@ -1,4 +1,4 @@
-package dappermongo.internal
+package zio.interop.reactivestreams.internal
 
 import org.reactivestreams.Subscriber
 import zio.{Task, UIO}

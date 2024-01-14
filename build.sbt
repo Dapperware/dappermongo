@@ -1,11 +1,34 @@
 ThisBuild / scalaVersion               := "2.13.12"
-ThisBuild / version                    := "0.1.0-SNAPSHOT"
 ThisBuild / organization               := "com.github.dapperware"
 ThisBuild / organizationName           := "Dapperware"
 ThisBuild / name                       := "dappermongo"
 ThisBuild / semanticdbEnabled          := true
 ThisBuild / semanticdbVersion          := scalafixSemanticdb.revision
 ThisBuild / scalafixScalaBinaryVersion := CrossVersion.binaryScalaVersion(scalaVersion.value)
+ThisBuild / sonatypeCredentialHost     := "s01.oss.sonatype.org"
+sonatypeRepository                     := "https://s01.oss.sonatype.org/service/local"
+
+inThisBuild(
+  List(
+    scmInfo := Some(
+      ScmInfo(
+        url("https://github.com/dapperware/dappermongo/"),
+        "scm:git:git@github.com:dapperware/dappermongo.git"
+      )
+    ),
+    developers := List(
+      Developer(
+        "paulpdaniels",
+        "Paul Daniels",
+        "",
+        url("https://github.com/paulpdaniels")
+      )
+    ),
+    licenses := List(
+      "Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0")
+    )
+  )
+)
 
 enablePlugins(
   ZioSbtEcosystemPlugin

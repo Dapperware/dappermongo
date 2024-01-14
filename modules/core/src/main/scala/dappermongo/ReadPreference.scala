@@ -1,7 +1,7 @@
 package dappermongo
 
 import com.mongodb
-import com.mongodb.ReadPreferenceHedgeOptions
+import com.mongodb.{ReadPreferenceHedgeOptions, TaggableReadPreference}
 import dappermongo.ReadPreference.Taggable.applySettings
 import zio.{Chunk, Config, Duration}
 
@@ -18,7 +18,29 @@ sealed abstract class ReadPreference(private[dappermongo] val wrapped: com.mongo
 
 object ReadPreference {
 
-  private[dappermongo] def apply(inner: com.mongodb.ReadPreference): ReadPreference = new ReadPreference(inner) {}
+  private[dappermongo] def apply(inner: com.mongodb.ReadPreference): ReadPreference = inner match {
+    case rp: TaggableReadPreference =>
+      val maxStaleness = Option(rp.getMaxStaleness(TimeUnit.MILLISECONDS)).map(Duration.fromMillis(_))
+      val tags = Option(rp.getTagSetList).map(
+        _.asScala.map(ts => TagSet(ts.asScala.map(t => t.getName -> t.getValue).toMap)).to(Chunk)
+      )
+      val hedgeOptions = Option(rp.getHedgeOptions).map(ho => HedgeOptions(ho.isEnabled))
+
+      inner.getName match {
+        case "primaryPreferred" =>
+          PrimaryPreferred(maxStaleness, tags, hedgeOptions)
+        case "secondary" =>
+          Secondary(maxStaleness, tags, hedgeOptions)
+        case "secondaryPreferred" =>
+          SecondaryPreferred(maxStaleness, tags, hedgeOptions)
+        case "nearest" =>
+          Nearest(maxStaleness, tags, hedgeOptions)
+        case _ =>
+          new Taggable(inner, maxStaleness, tags, hedgeOptions) {}
+      }
+    case _ if inner.getName == "primary" => Primary
+    case other                           => new ReadPreference(other) {}
+  }
 
   abstract class Taggable(
     wrapped: com.mongodb.ReadPreference,

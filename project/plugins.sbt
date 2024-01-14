@@ -1,5 +1,4 @@
 addSbtPlugin("dev.zio"        % "zio-sbt-ecosystem" % "0.4.0-alpha.22")
 addSbtPlugin("dev.zio"        % "zio-sbt-ci"        % "0.4.0-alpha.22")
 addSbtPlugin("dev.zio"        % "zio-sbt-website"   % "0.4.0-alpha.22")
-addSbtPlugin("com.github.sbt" % "sbt-pgp"           % "2.2.1")
-addSbtPlugin("org.xerial.sbt" % "sbt-sonatype"      % "3.9.21")
+addSbtPlugin("com.github.sbt" % "sbt-ci-release"    % "1.5.12")
