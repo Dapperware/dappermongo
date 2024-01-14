@@ -1,12 +1,12 @@
 package dappermongo
 
 import com.mongodb.reactivestreams.client.MongoDatabase
-import dappermongo.internal.PublisherOps
+import java.util.concurrent.TimeUnit
 import org.bson.{BsonDocument, BsonValue}
 import zio.bson.BsonEncoder
 import zio.{Duration, ZIO}
 
-import java.util.concurrent.TimeUnit
+import dappermongo.internal.PublisherOps
 
 trait CountOps {
 

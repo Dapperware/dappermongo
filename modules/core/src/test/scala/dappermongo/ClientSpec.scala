@@ -1,8 +1,10 @@
 package dappermongo
 
-import zio.{ZIO, durationInt}
+import zio.ZIO
 import zio.test.Assertion.isRight
 import zio.test._
+
+import zio.durationInt
 
 object ClientSpec extends ZIOSpecDefault {
 

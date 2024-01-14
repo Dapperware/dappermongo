@@ -2,12 +2,13 @@ package dappermongo
 
 import com.mongodb.client.model.ReplaceOptions
 import com.mongodb.reactivestreams.client.{MongoCollection, MongoDatabase}
-import dappermongo.internal.PublisherOps
 import dappermongo.results.{Result, Updated}
 import org.bson.BsonValue
 import org.bson.conversions.Bson
 import zio.ZIO
 import zio.bson.BsonEncoder
+
+import dappermongo.internal.PublisherOps
 
 trait ReplaceOps {
 
@@ -43,8 +44,7 @@ object ReplaceBuilder {
     variables: Option[Bson] = None
   )
 
-  private[dappermongo] case class Impl(database: MongoDatabase, options: ReplaceBuilderOptions)
-      extends ReplaceBuilder[Collection] {
+  private case class Impl(database: MongoDatabase, options: ReplaceBuilderOptions) extends ReplaceBuilder[Collection] {
     override def one[Q: BsonEncoder, U: BsonEncoder](q: Q, u: U): ZIO[Collection, Throwable, Result[Updated]] =
       ZIO.serviceWithZIO { collection =>
         MongoClient.currentSession.flatMap { session =>
@@ -92,8 +92,8 @@ object ReplaceBuilder {
 
     private def toReplaceOptions(options: ReplaceBuilderOptions): ReplaceOptions =
       new ReplaceOptions()
-        .upsert(options.upsert.getOrElse(false))
-        .bypassDocumentValidation(options.bypassDocumentValidation.getOrElse(false))
+        .upsert(java.lang.Boolean.valueOf(options.upsert.getOrElse(false)))
+        .bypassDocumentValidation(java.lang.Boolean.valueOf(options.bypassDocumentValidation.getOrElse(false)))
         .collation(options.collation.map(_.asJava).orNull)
         .hintString(options.hint.orNull)
         .let(options.variables.orNull)

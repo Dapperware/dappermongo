@@ -1,16 +1,17 @@
 package dappermongo
 
+import scala.jdk.CollectionConverters._
+
 import com.mongodb.client.model.{CreateIndexOptions, IndexModel, Indexes}
 import com.mongodb.reactivestreams.client.MongoDatabase
-import dappermongo.internal.PublisherOps
+import java.util
 import org.bson.conversions.Bson
 import zio.ZIO
 import zio.bson.BsonDecoder
-import zio.interop.reactivestreams.publisherToStream
 import zio.stream.ZStream
 
-import java.util
-import scala.jdk.CollectionConverters._
+import dappermongo.internal.PublisherOps
+import zio.interop.reactivestreams.publisherToStream
 
 trait IndexOps {
 
@@ -50,10 +51,10 @@ object IndexBuilder {
         collection <- ZIO.service[Collection]
         jcollection = database.getCollection(collection.name)
         jIndexes    = indexes.map(toIndexModel).asJava
-        _ <- (session
+        _ <- session
                .fold(jcollection.createIndexes(jIndexes, options))(
                  jcollection.createIndexes(_, jIndexes, options)
-               ))
+               )
                .empty
       } yield ()
 
@@ -62,10 +63,10 @@ object IndexBuilder {
         session    <- MongoClient.currentSession
         collection <- ZIO.service[Collection]
         jcollection = database.getCollection(collection.name)
-        _ <- (session
+        _ <- session
                .fold(jcollection.dropIndex(indexName))(
                  jcollection.dropIndex(_, indexName)
-               ))
+               )
                .empty
       } yield ()
 
@@ -74,7 +75,7 @@ object IndexBuilder {
         session    <- MongoClient.currentSession
         collection <- ZIO.service[Collection]
         jcollection = database.getCollection(collection.name)
-        _          <- (session.fold(jcollection.dropIndexes())(jcollection.dropIndexes)).empty
+        _          <- session.fold(jcollection.dropIndexes())(jcollection.dropIndexes).empty
       } yield ()
 
     private def toIndexModel(index: Index): IndexModel = {

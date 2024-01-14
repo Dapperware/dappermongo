@@ -1,9 +1,8 @@
 package zio.interop.reactivestreams.internal
 
+import java.util.concurrent.atomic.AtomicBoolean
 import org.reactivestreams.Subscription
 import zio.{Promise, Scope, Task, UIO, URIO, Unsafe, ZIO}
-
-import java.util.concurrent.atomic.AtomicBoolean
 
 object SingleSubscriber {
 

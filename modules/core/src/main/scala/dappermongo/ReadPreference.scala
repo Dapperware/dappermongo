@@ -1,12 +1,12 @@
 package dappermongo
 
+import scala.jdk.CollectionConverters._
+
 import com.mongodb
 import com.mongodb.{ReadPreferenceHedgeOptions, TaggableReadPreference}
 import dappermongo.ReadPreference.Taggable.applySettings
-import zio.{Chunk, Config, Duration}
-
 import java.util.concurrent.TimeUnit
-import scala.jdk.CollectionConverters._
+import zio.{Chunk, Config, Duration}
 
 sealed abstract class ReadPreference(private[dappermongo] val wrapped: com.mongodb.ReadPreference) {
 
@@ -106,9 +106,9 @@ object ReadPreference {
       "nearest"            -> Config.succeed(Nearest())
     )
 
-    val taggable = (Config.duration("maxStaleness").optional zip
+    val taggable = Config.duration("maxStaleness").optional zip
       TagSet.config.nested("tags").repeat.optional.map(_.filter(_.exists(_.tagSet.nonEmpty))) zip
-      Config.boolean("hedge").map(HedgeOptions.apply).optional)
+      Config.boolean("hedge").map(HedgeOptions.apply).optional
 
     val withParams = Config
       .string("name")

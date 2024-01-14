@@ -1,11 +1,12 @@
 package dappermongo
 
 import com.mongodb.MongoDriverInformation
-import com.mongodb.reactivestreams.client.{ClientSession, MongoClients, MongoClient => JMongoClient}
-import dappermongo.internal.PublisherOps
+import com.mongodb.reactivestreams.client.{ClientSession, MongoClient => JMongoClient, MongoClients}
 import zio._
-import zio.interop.reactivestreams.publisherToStream
 import zio.stream.ZStream
+
+import dappermongo.internal.PublisherOps
+import zio.interop.reactivestreams.publisherToStream
 
 trait MongoClient {
 

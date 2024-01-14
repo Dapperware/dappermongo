@@ -2,8 +2,9 @@ package dappermongo
 
 import com.mongodb.reactivestreams.client.ClientSession
 import dappermongo.Session.TransactionRestorer
-import dappermongo.internal.PublisherOps
 import zio.{Exit, Scope, ZIO}
+
+import dappermongo.internal.PublisherOps
 
 trait Session {
 

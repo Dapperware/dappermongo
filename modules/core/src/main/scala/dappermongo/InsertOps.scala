@@ -1,11 +1,12 @@
 package dappermongo
 
 import com.mongodb.reactivestreams.client.MongoDatabase
-import dappermongo.internal.PublisherOps
 import dappermongo.results.{InsertedOne, Result}
 import org.bson.BsonValue
 import zio.ZIO
 import zio.bson.BsonEncoder
+
+import dappermongo.internal.PublisherOps
 
 trait InsertOps {
 

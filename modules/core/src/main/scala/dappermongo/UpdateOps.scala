@@ -1,13 +1,14 @@
 package dappermongo
 
+import scala.jdk.CollectionConverters._
+
 import com.mongodb.reactivestreams.client.MongoDatabase
-import dappermongo.internal.PublisherOps
 import dappermongo.results.{Result, Updated}
 import org.bson.BsonDocument
 import zio.bson.BsonEncoder
 import zio.{Chunk, ZIO}
 
-import scala.jdk.CollectionConverters._
+import dappermongo.internal.PublisherOps
 
 trait UpdateOps {
 

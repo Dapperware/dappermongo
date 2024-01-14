@@ -1,6 +1,7 @@
 package dappermongo
 
 import scala.util.Try
+
 import com.mongodb.{ConnectionString => JConnectionString}
 import dappermongo.ConnectionStringVersionSpecific
 import zio.Config.Secret

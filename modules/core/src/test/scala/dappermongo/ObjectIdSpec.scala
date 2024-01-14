@@ -1,14 +1,17 @@
 package dappermongo
 
-import zio.test.{TestClock, ZIOSpecDefault, assertTrue}
-import zio.{Clock, ZIO, durationInt}
-
 import java.time.Instant
+import zio.test.{TestClock, ZIOSpecDefault, assertTrue}
+import zio.{Clock, URIO, ZIO}
+
+import zio.durationInt
 
 object ObjectIdSpec extends ZIOSpecDefault {
 
-  val clockBasedFactory = ObjectId.Factory.make(Clock.instant.map(ObjectId.fromInstant(_, timeOnly = true)))
-  val constantFactory = {
+  val clockBasedFactory: URIO[Any, ObjectId.Factory] =
+    ObjectId.Factory.make(Clock.instant.map(ObjectId.fromInstant(_, timeOnly = true)))
+
+  val constantFactory: URIO[Any, ObjectId.Factory] = {
     val id = ObjectId.fromInstant(Instant.EPOCH, timeOnly = true)
     ObjectId.Factory.make(ZIO.succeed(id))
   }

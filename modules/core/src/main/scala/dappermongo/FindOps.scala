@@ -1,12 +1,13 @@
 package dappermongo
 
 import com.mongodb.reactivestreams.client.MongoDatabase
-import dappermongo.internal.PublisherOps
 import org.bson.RawBsonDocument
 import zio.ZIO
 import zio.bson._
-import zio.interop.reactivestreams.publisherToStream
 import zio.stream.ZStream
+
+import dappermongo.internal.PublisherOps
+import zio.interop.reactivestreams.publisherToStream
 
 trait FindOps {
 
