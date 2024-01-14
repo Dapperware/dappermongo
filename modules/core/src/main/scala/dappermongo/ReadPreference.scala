@@ -21,8 +21,8 @@ object ReadPreference {
   private[dappermongo] def apply(inner: com.mongodb.ReadPreference): ReadPreference = inner match {
     case rp: TaggableReadPreference =>
       val maxStaleness = Option(rp.getMaxStaleness(TimeUnit.MILLISECONDS)).map(Duration.fromMillis(_))
-      val tags = Option(rp.getTagSetList).map(
-        _.asScala.map(ts => TagSet(ts.asScala.map(t => t.getName -> t.getValue).toMap)).to(Chunk)
+      val tags = Option(rp.getTagSetList).map(ts =>
+        Chunk.fromIterable(ts.asScala.map(ts => TagSet(ts.asScala.map(t => t.getName -> t.getValue).toMap)))
       )
       val hedgeOptions = Option(rp.getHedgeOptions).map(ho => HedgeOptions(ho.isEnabled))
 

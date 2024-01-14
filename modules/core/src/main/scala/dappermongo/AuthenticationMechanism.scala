@@ -14,10 +14,10 @@ object AuthenticationMechanism {
   case class ScramSha1(userName: String, source: String, password: Secret)   extends AuthenticationMechanism
   case class ScramSha256(userName: String, source: String, password: Secret) extends AuthenticationMechanism
 
-  private val gssapi: Config[GSSApi] = Config.string("userName").map(GSSApi)
+  private val gssapi: Config[GSSApi] = Config.string("userName").map(GSSApi.apply)
   private val aws: Config[Aws] =
     (Config.string("userName").optional zip Config.secret("password").optional).map((Aws.apply _).tupled)
-  private val x509: Config[X509] = Config.string("userName").map(X509)
+  private val x509: Config[X509] = Config.string("userName").map(X509.apply)
   private val plain: Config[Plain] =
     (Config.string("userName") zip Config.string("source") zip Config.secret("password")).map {
       (Plain.apply _).tupled
