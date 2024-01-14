@@ -3,7 +3,7 @@ package dappermongo
 import zio.test.{ZIOSpecDefault, assertTrue}
 import zio.{ConfigProvider, ZIO}
 
-object ReadPrefrenceSpec extends ZIOSpecDefault {
+object ReadPreferenceSpec extends ZIOSpecDefault {
 
   val spec = suite("ReadPreference")(
     suite("config")(

@@ -63,7 +63,7 @@ object MongoClient {
   private lazy val driverInformation =
     MongoDriverInformation
       .builder()
-      .driverName("dappermon")
+      .driverName("dappermongo")
       .driverVersion("0.0.1")
       .driverPlatform("zio")
       .build()
