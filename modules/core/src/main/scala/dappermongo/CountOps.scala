@@ -80,7 +80,6 @@ object CountBuilder {
           options.limit.foreach(countOptions.limit)
           options.maxTime.foreach(d => countOptions.maxTime(d.toMillis, TimeUnit.MILLISECONDS))
           options.skip.foreach(countOptions.skip)
-          // TODO - how do we convert this into a `Bson`?
           options.hint.map(_.apply()).foreach(hint => countOptions.hint(hint.asDocument()))
           options.collation.foreach(collation => countOptions.collation(collation.asJava))
           options.comment.foreach(countOptions.comment)
