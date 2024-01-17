@@ -1,8 +1,7 @@
 package dappermongo
 
 import com.mongodb.reactivestreams.client.MongoDatabase
-import org.bson.BsonDocument
-import zio.bson.BsonEncoder
+import reactivemongo.api.bson.{BSONDocument, BSONDocumentWriter}
 import zio.{ZIO, ZLayer}
 
 trait Database
@@ -35,15 +34,18 @@ object Database {
     override def update: UpdateBuilder[Collection] = UpdateBuilder(database)
     override def insert: InsertBuilder[Collection] = InsertBuilder(database)
     override def findAll: FindBuilder[Collection]  = FindBuilder(database)
-    override def find[Q: BsonEncoder](q: Q): FindBuilder[Collection] =
-      FindBuilder(database, QueryBuilderOptions(filter = Some(() => BsonEncoder[Q].toBsonValue(q).asDocument())))
+    override def find[Q](q: Q)(implicit ev: BSONDocumentWriter[Q]): FindBuilder[Collection] =
+      FindBuilder(database, QueryBuilderOptions(filter = Some(() => ev.writeTry(q).get)))
 
-    override def find[Q: BsonEncoder, P: BsonEncoder](q: Q, p: P): FindBuilder[Collection] =
+    override def find[Q, P](query: Q, projection: P)(implicit
+      evQ: BSONDocumentWriter[Q],
+      evP: BSONDocumentWriter[P]
+    ): FindBuilder[Collection] =
       FindBuilder(
         database,
         QueryBuilderOptions(
-          filter = Some(() => BsonEncoder[Q].toBsonValue(q).asDocument()),
-          projection = Some(() => BsonEncoder[P].toBsonValue(p).asDocument())
+          filter = Some(() => evQ.writeTry(query).get),
+          projection = Some(() => evP.writeTry(projection).get)
         )
       )
 
@@ -59,9 +61,9 @@ object Database {
 }
 
 private case class QueryBuilderOptions(
-  filter: Option[() => BsonDocument] = None,
-  projection: Option[() => BsonDocument] = None,
-  sort: Option[() => BsonDocument] = None,
+  filter: Option[() => BSONDocument] = None,
+  projection: Option[() => BSONDocument] = None,
+  sort: Option[() => BSONDocument] = None,
   skip: Option[Int] = None,
   allowDiskUse: Option[Boolean] = None,
   collation: Option[Collation] = None,

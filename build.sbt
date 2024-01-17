@@ -34,6 +34,7 @@ enablePlugins(
 
 def scalacOptionsVersion(scalaVersion: String) = CrossVersion.partialVersion(scalaVersion) match {
   case Some((2, 13)) => Seq("-Wunused")
+  case Some((2, 12)) => Seq("-Xlint:unused")
   case _             => Nil
 }
 
@@ -41,17 +42,14 @@ lazy val core = (project in file("modules/core"))
   .settings(
     name := "dappermongo-core",
     libraryDependencies ++= Seq(
-      "dev.zio"    %% "zio"                            % "2.0.21",
-      "dev.zio"    %% "zio-streams"                    % "2.0.21",
-      "dev.zio"    %% "zio-interop-reactivestreams"    % "2.0.2",
-      "dev.zio"    %% "zio-bson"                       % "1.0.5",
-      "org.mongodb" % "mongodb-driver-reactivestreams" % "4.11.0",
-//      "org.reactivemongo" %% "reactivemongo-bson-msb-compat"  % "1.1.0-RC12",
-      "dev.zio"      %% "zio-schema-bson"              % "0.4.17"  % Test,
-      "dev.zio"      %% "zio-schema-derivation"        % "0.4.17"  % Test,
-      "dev.zio"      %% "zio-test"                     % "2.0.21"  % Test,
-      "dev.zio"      %% "zio-test-sbt"                 % "2.0.21"  % Test,
-      "com.dimafeng" %% "testcontainers-scala-mongodb" % "0.40.12" % Test
+      "dev.zio"           %% "zio"                            % "2.0.21",
+      "dev.zio"           %% "zio-streams"                    % "2.0.21",
+      "dev.zio"           %% "zio-interop-reactivestreams"    % "2.0.2",
+      "org.mongodb"        % "mongodb-driver-reactivestreams" % "4.11.0",
+      "org.reactivemongo" %% "reactivemongo-bson-msb-compat"  % "1.1.0-RC12",
+      "dev.zio"           %% "zio-test"                       % "2.0.21"  % Test,
+      "dev.zio"           %% "zio-test-sbt"                   % "2.0.21"  % Test,
+      "com.dimafeng"      %% "testcontainers-scala-mongodb"   % "0.40.12" % Test
     ),
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
     Test / fork   := true,

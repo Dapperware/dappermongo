@@ -5,8 +5,9 @@ import com.mongodb.reactivestreams.client.{MongoCollection, MongoDatabase}
 import dappermongo.results.{Result, Updated}
 import org.bson.BsonValue
 import org.bson.conversions.Bson
+import reactivemongo.api.bson.BSONDocumentWriter
+import reactivemongo.api.bson.msb._
 import zio.ZIO
-import zio.bson.BsonEncoder
 
 import dappermongo.internal.PublisherOps
 
@@ -17,7 +18,7 @@ trait ReplaceOps {
 }
 
 trait ReplaceBuilder[-R] {
-  def one[Q: BsonEncoder, U: BsonEncoder](q: Q, u: U): ZIO[R, Throwable, Result[Updated]]
+  def one[Q: BSONDocumentWriter, U: BSONDocumentWriter](q: Q, u: U): ZIO[R, Throwable, Result[Updated]]
 
   def upsert(upsert: Boolean): ReplaceBuilder[R]
 
@@ -45,13 +46,16 @@ object ReplaceBuilder {
   )
 
   private case class Impl(database: MongoDatabase, options: ReplaceBuilderOptions) extends ReplaceBuilder[Collection] {
-    override def one[Q: BsonEncoder, U: BsonEncoder](q: Q, u: U): ZIO[Collection, Throwable, Result[Updated]] =
+    override def one[Q, U](
+      q: Q,
+      u: U
+    )(implicit evQ: BSONDocumentWriter[Q], evU: BSONDocumentWriter[U]): ZIO[Collection, Throwable, Result[Updated]] =
       ZIO.serviceWithZIO { collection =>
         MongoClient.currentSession.flatMap { session =>
           val coll = withLocalSettings(database.getCollection(collection.name, classOf[BsonValue]), collection)
 
-          val query = BsonEncoder[Q].toBsonValue(q).asDocument()
-          val value = BsonEncoder[U].toBsonValue(u)
+          val query: Bson      = evQ.writeTry(q).get
+          val value: BsonValue = evU.writeTry(u).get
 
           session
             .fold(coll.replaceOne(query, value, toReplaceOptions(options)))(

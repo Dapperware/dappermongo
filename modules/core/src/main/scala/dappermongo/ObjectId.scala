@@ -6,7 +6,8 @@ import java.nio.ByteBuffer
 import java.time.Instant
 import java.util.Date
 import org.bson.types.{ObjectId => JObjectId}
-import zio.bson.{BsonDecoder, BsonEncoder}
+import reactivemongo.api.bson
+import reactivemongo.api.bson.{BSONObjectID, BSONReader, BSONWriter}
 import zio.{Chunk, FiberRef, Scope, UIO, URIO, Unsafe, ZIO}
 
 class ObjectId private (private val inner: JObjectId) {
@@ -20,11 +21,13 @@ class ObjectId private (private val inner: JObjectId) {
 }
 
 object ObjectId {
-  implicit val encoder: BsonEncoder[ObjectId] =
-    BsonEncoder[JObjectId].contramap(_.inner)
+  import reactivemongo.api.bson.msb._
 
-  implicit val decoder: BsonDecoder[ObjectId] =
-    BsonDecoder[JObjectId].map(new ObjectId(_))
+  implicit val encoder: BSONWriter[ObjectId] =
+    implicitly[bson.BSONWriter[BSONObjectID]].beforeWrite(oid => toObjectID(oid.inner))
+
+  implicit val decoder: BSONReader[ObjectId] =
+    implicitly[bson.BSONReader[BSONObjectID]].afterRead(oid => new ObjectId(fromObjectID(oid).getValue))
 
   implicit val order: Ordering[ObjectId] =
     Ordering.by(_.inner)

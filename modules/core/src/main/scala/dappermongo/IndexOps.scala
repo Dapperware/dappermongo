@@ -1,13 +1,13 @@
 package dappermongo
 
-import scala.jdk.CollectionConverters._
-
 import com.mongodb.client.model.{CreateIndexOptions, IndexModel, Indexes}
 import com.mongodb.reactivestreams.client.MongoDatabase
+import dappermongo.internal.CollectionConversionsVersionSpecific
 import java.util
 import org.bson.conversions.Bson
+import reactivemongo.api.bson.BSONDocumentReader
+import reactivemongo.api.bson.msb._
 import zio.ZIO
-import zio.bson.BsonDecoder
 import zio.stream.ZStream
 
 import dappermongo.internal.PublisherOps
@@ -21,7 +21,7 @@ trait IndexOps {
 
 trait IndexBuilder[-R] {
 
-  def list[T: BsonDecoder]: ZStream[R, Throwable, T]
+  def list[T: BSONDocumentReader]: ZStream[R, Throwable, T]
 
   def create(indexes: List[Index], options: CreateIndexOptions): ZIO[R, Throwable, Unit]
 
@@ -31,17 +31,20 @@ trait IndexBuilder[-R] {
 
 }
 
-object IndexBuilder {
+object IndexBuilder extends CollectionConversionsVersionSpecific {
   case class Impl(database: MongoDatabase) extends IndexBuilder[Collection] {
-    override def list[T: BsonDecoder]: ZStream[Collection, Throwable, T] =
+    override def list[T](implicit ev: BSONDocumentReader[T]): ZStream[Collection, Throwable, T] =
       for {
         session    <- ZStream.fromZIO(MongoClient.currentSession)
         collection <- ZStream.service[Collection]
-        jcollection = database.getCollection(collection.name)
+        jcollection = database.getCollection(collection.name, classOf[Bson])
         index <- session
                    .fold(jcollection.listIndexes())(jcollection.listIndexes)
                    .toZIOStream()
-                   .map(index => BsonDecoder[T].fromBsonValue(index.toBsonDocument()))
+                   .map { index =>
+                     ev.readTry(toDocument(index.toBsonDocument()))
+                       .fold(Left(_), Right(_))
+                   }
                    .absolve
       } yield index
 
@@ -50,7 +53,7 @@ object IndexBuilder {
         session    <- MongoClient.currentSession
         collection <- ZIO.service[Collection]
         jcollection = database.getCollection(collection.name)
-        jIndexes    = indexes.map(toIndexModel).asJava
+        jIndexes    = seqAsJava(indexes.map(toIndexModel))
         _ <- session
                .fold(jcollection.createIndexes(jIndexes, options))(
                  jcollection.createIndexes(_, jIndexes, options)
@@ -87,7 +90,7 @@ object IndexBuilder {
         case Index.Geo2D(field)        => Indexes.geo2d(field)
         case Index.Geo2DSphere(fields) => Indexes.geo2dsphere(fields: _*)
         case Index.Compound(indexes) =>
-          Indexes.compoundIndex(new util.ArrayList[Bson](indexes.map(go).asJavaCollection))
+          Indexes.compoundIndex(new util.ArrayList[Bson](collectionAsJava(indexes.map(go))))
       }
 
       new IndexModel(go(index))
