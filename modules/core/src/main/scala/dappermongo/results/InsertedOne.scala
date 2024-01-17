@@ -1,11 +1,11 @@
 package dappermongo.results
 
-import org.bson.BsonValue
+import reactivemongo.api.bson.BSONValue
 
 case class InsertedOne(
-  insertedId: Option[BsonValue]
+  insertedId: Option[BSONValue]
 )
 
 case class InsertedMany(
-  insertedIds: Map[Int, BsonValue]
+  insertedIds: Map[Int, BSONValue]
 )

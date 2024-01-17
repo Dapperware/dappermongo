@@ -1,17 +1,14 @@
 package dappermongo
 
+import reactivemongo.api.bson.{BSONDocumentHandler, Macros}
 import zio._
-import zio.bson.BsonCodec
-import zio.schema.codec.BsonSchemaCodec
-import zio.schema.{DeriveSchema, Schema}
 import zio.test.{TestAspect, assertTrue}
 
 object QuerySpec extends MongoITSpecDefault {
   case class Person(name: String, age: Int)
 
   object Person {
-    val schema: Schema[Person]            = DeriveSchema.gen[Person]
-    implicit val codec: BsonCodec[Person] = BsonSchemaCodec.bsonCodec(schema)
+    implicit val codec: BSONDocumentHandler[Person] = Macros.handler[Person]
   }
 
   val spec = suite("Query")(

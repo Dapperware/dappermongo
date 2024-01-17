@@ -2,9 +2,10 @@ package dappermongo
 
 import com.mongodb.reactivestreams.client.MongoDatabase
 import dappermongo.results.{Deleted, Result}
-import org.bson.RawBsonDocument
+import org.bson.{BsonDocument, RawBsonDocument}
+import reactivemongo.api.bson.BSONDocumentWriter
+import reactivemongo.api.bson.msb._
 import zio.ZIO
-import zio.bson.BsonEncoder
 
 import dappermongo.internal.PublisherOps
 
@@ -15,9 +16,9 @@ trait DeleteOps {
 }
 
 trait DeleteBuilder[-R] {
-  def one[U: BsonEncoder](u: U): ZIO[R, Throwable, Result[Deleted]]
+  def one[U: BSONDocumentWriter](u: U): ZIO[R, Throwable, Result[Deleted]]
 
-  def many[U: BsonEncoder](u: U): ZIO[Collection, Throwable, Result[Deleted]]
+  def many[U: BSONDocumentWriter](u: U): ZIO[Collection, Throwable, Result[Deleted]]
 }
 
 object DeleteBuilder {
@@ -27,11 +28,11 @@ object DeleteBuilder {
 
   private class Impl(database: MongoDatabase) extends DeleteBuilder[Collection] {
 
-    override def many[U: BsonEncoder](u: U): ZIO[Collection, Throwable, Result[Deleted]] =
+    override def many[U](u: U)(implicit ev: BSONDocumentWriter[U]): ZIO[Collection, Throwable, Result[Deleted]] =
       ZIO.serviceWithZIO { collection =>
         MongoClient.currentSession.flatMap { session =>
-          val coll  = database.getCollection(collection.name, classOf[RawBsonDocument])
-          val query = BsonEncoder[U].toBsonValue(u).asDocument()
+          val coll                = database.getCollection(collection.name, classOf[RawBsonDocument])
+          val query: BsonDocument = ev.writeTry(u).get
 
           session
             .fold(coll.deleteMany(query))(coll.deleteMany(_, query))
@@ -44,11 +45,11 @@ object DeleteBuilder {
         }
       }
 
-    override def one[U: BsonEncoder](u: U): ZIO[Collection, Throwable, Result[Deleted]] =
+    override def one[U](u: U)(implicit ev: BSONDocumentWriter[U]): ZIO[Collection, Throwable, Result[Deleted]] =
       ZIO.serviceWithZIO { collection =>
         MongoClient.currentSession.flatMap { session =>
-          val coll  = database.getCollection(collection.name, classOf[RawBsonDocument])
-          val query = BsonEncoder[U].toBsonValue(u).asDocument()
+          val coll                = database.getCollection(collection.name, classOf[RawBsonDocument])
+          val query: BsonDocument = ev.writeTry(u).get
 
           session
             .fold(coll.deleteOne(query))(coll.deleteOne(_, query))

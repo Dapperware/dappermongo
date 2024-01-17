@@ -1,11 +1,12 @@
 package dappermongo
 
-import scala.jdk.CollectionConverters._
-
 import com.mongodb.reactivestreams.client.MongoDatabase
+import dappermongo.internal.CollectionConversionsVersionSpecific
 import dappermongo.results.{Result, Updated}
 import org.bson.BsonDocument
-import zio.bson.BsonEncoder
+import org.bson.conversions.Bson
+import reactivemongo.api.bson.BSONDocumentWriter
+import reactivemongo.api.bson.msb._
 import zio.{Chunk, ZIO}
 
 import dappermongo.internal.PublisherOps
@@ -17,28 +18,31 @@ trait UpdateOps {
 }
 
 trait UpdateBuilder[-R] {
-  def one[Q: BsonEncoder, U: BsonEncoder](q: Q, u: U): ZIO[R, Throwable, Result[Updated]]
+  def one[Q: BSONDocumentWriter, U: BSONDocumentWriter](q: Q, u: U): ZIO[R, Throwable, Result[Updated]]
 
-  def many[Q: BsonEncoder, U: BsonEncoder](q: Q, updates: Chunk[U]): ZIO[R, Throwable, Result[Updated]]
+  def many[Q: BSONDocumentWriter, U: BSONDocumentWriter](q: Q, updates: Chunk[U]): ZIO[R, Throwable, Result[Updated]]
 }
 
-object UpdateBuilder {
+object UpdateBuilder extends CollectionConversionsVersionSpecific {
 
   def apply(database: MongoDatabase): UpdateBuilder[Collection] =
     new Impl(database)
   private class Impl(database: MongoDatabase) extends UpdateBuilder[Collection] {
 
-    def many[Q: BsonEncoder, U: BsonEncoder](q: Q, updates: Chunk[U]): ZIO[Collection, Throwable, Result[Updated]] =
+    def many[Q, U](q: Q, updates: Chunk[U])(implicit
+      evQ: BSONDocumentWriter[Q],
+      evU: BSONDocumentWriter[U]
+    ): ZIO[Collection, Throwable, Result[Updated]] =
       ZIO.serviceWithZIO { collection =>
         MongoClient.currentSession.flatMap { session =>
           val coll = database
             .getCollection(collection.name, classOf[BsonDocument])
 
-          val query  = BsonEncoder[Q].toBsonValue(q).asDocument()
-          val update = updates.map(BsonEncoder[U].toBsonValue(_).asDocument()).asJava
+          val query: Bson = evQ.writeTry(q).get
+          val ups         = updates.map(u => fromDocument(evU.writeTry(u).get))
 
           session
-            .fold(coll.updateMany(query, update))(coll.updateMany(_, query, update))
+            .fold(coll.updateMany(query, seqAsJava(ups)))(coll.updateMany(_, query, seqAsJava(ups)))
             .single
             .map(
               _.fold[Result[Updated]](Result.Unacknowledged)(result =>
@@ -49,14 +53,17 @@ object UpdateBuilder {
         }
       }
 
-    override def one[Q: BsonEncoder, U: BsonEncoder](q: Q, u: U): ZIO[Collection, Throwable, Result[Updated]] =
+    override def one[Q, U](
+      q: Q,
+      u: U
+    )(implicit evQ: BSONDocumentWriter[Q], evU: BSONDocumentWriter[U]): ZIO[Collection, Throwable, Result[Updated]] =
       ZIO.serviceWithZIO { collection =>
         MongoClient.currentSession.flatMap { session =>
           val coll = database
             .getCollection(collection.name, classOf[BsonDocument])
 
-          val query  = BsonEncoder[Q].toBsonValue(q).asDocument()
-          val update = BsonEncoder[U].toBsonValue(u).asDocument()
+          val query: Bson  = evQ.writeTry(q).get
+          val update: Bson = evU.writeTry(u).get
 
           session
             .fold(coll.updateOne(query, update))(coll.updateOne(_, query, update))

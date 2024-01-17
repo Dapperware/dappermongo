@@ -1,8 +1,7 @@
 package dappermongo
 
-import zio.bson.{BsonCodec, bsonField}
-import zio.schema.codec.BsonSchemaCodec
-import zio.schema.{DeriveSchema, Schema}
+import reactivemongo.api.bson.Macros.Annotations.Key
+import reactivemongo.api.bson.{BSONDocumentHandler, BSONHandler, Macros}
 import zio.test._
 import zio.{Chunk, Random, Scope, ZIO, ZLayer}
 
@@ -11,26 +10,24 @@ object TransactionSpec extends MongoITSpecDefault {
   private val randomCollection =
     ZLayer(Random.nextIntBetween(0, Int.MaxValue).map(value => Collection(s"test-$value")))
 
-  case class Setter[A](@bsonField("$set") value: A)
+  case class Setter[A](@Key("$set") value: A)
 
   object Setter {
-    def apply[A](value: A): Setter[A] = new Setter(value)
-    implicit def codec[A: Schema]: BsonCodec[Setter[A]] = {
-      val _ = implicitly[Schema[A]] // To satisfy scalafix
-      BsonSchemaCodec.bsonCodec(DeriveSchema.gen[Setter[A]])
+    implicit def codec[A: BSONHandler]: BSONDocumentHandler[Setter[A]] = {
+      val _ = implicitly[BSONHandler[A]] // To satisfy scalafix
+      Macros.handler[Setter[A]]
     }
   }
 
-  case class Person(@bsonField("_id") name: String, age: Int)
+  case class Person(@Key("_id") name: String, age: Int)
 
   object Person {
-    val schema = DeriveSchema.gen[Person]
 
-    implicit val codec: BsonCodec[Person] = BsonSchemaCodec.bsonCodec(schema)
+    implicit val codec: BSONDocumentHandler[Person] = Macros.handler[Person]
     case class SetAge(age: Int)
 
     object SetAge {
-      implicit val schema: Schema[SetAge] = DeriveSchema.gen[SetAge]
+      implicit val schema: BSONDocumentHandler[SetAge] = Macros.handler[SetAge]
     }
   }
 

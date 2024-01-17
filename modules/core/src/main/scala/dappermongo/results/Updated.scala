@@ -1,9 +1,9 @@
 package dappermongo.results
 
-import org.bson.BsonValue
+import reactivemongo.api.bson.BSONValue
 
 case class Updated(
   matched: Long,
   modified: Long,
-  upsertedId: Option[BsonValue]
+  upsertedId: Option[BSONValue]
 )

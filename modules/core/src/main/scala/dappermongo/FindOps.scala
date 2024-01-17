@@ -2,8 +2,9 @@ package dappermongo
 
 import com.mongodb.reactivestreams.client.MongoDatabase
 import org.bson.RawBsonDocument
+import reactivemongo.api.bson.msb._
+import reactivemongo.api.bson.{BSONDocumentReader, BSONDocumentWriter}
 import zio.ZIO
-import zio.bson._
 import zio.stream.ZStream
 
 import dappermongo.internal.PublisherOps
@@ -11,20 +12,22 @@ import zio.interop.reactivestreams.publisherToStream
 
 trait FindOps {
 
-  def find[Q: BsonEncoder](q: Q): FindBuilder[Collection]
+  def find[Q: BSONDocumentWriter](q: Q): FindBuilder[Collection]
 
-  def find[Q: BsonEncoder, P: BsonEncoder](q: Q, p: P): FindBuilder[Collection]
+  def find[Q: BSONDocumentWriter, P: BSONDocumentWriter](q: Q, p: P): FindBuilder[Collection]
 
   def findAll: FindBuilder[Collection]
 
 }
 
 trait FindBuilder[-R] {
-  def one[A](implicit ev: BsonDecoder[A]): ZIO[R, Throwable, Option[A]]
+  def one[A](implicit ev: BSONDocumentReader[A]): ZIO[R, Throwable, Option[A]]
 
-  def stream[A](limit: Option[Int] = None, chunkSize: Int = 101)(implicit ev: BsonDecoder[A]): ZStream[R, Throwable, A]
+  def stream[A](limit: Option[Int] = None, chunkSize: Int = 101)(implicit
+    ev: BSONDocumentReader[A]
+  ): ZStream[R, Throwable, A]
 
-  def explain[A](implicit ev: BsonDecoder[A]): ZIO[R, Throwable, Option[A]]
+  def explain[A](implicit ev: BSONDocumentReader[A]): ZIO[R, Throwable, Option[A]]
 
   def allowDiskUse(allowDiskUse: Boolean): FindBuilder[R]
 
@@ -36,11 +39,11 @@ trait FindBuilder[-R] {
 
   def noCursorTimeout(noCursorTimeout: Boolean): FindBuilder[R]
 
-  def projection[P: BsonEncoder](projection: P): FindBuilder[R]
+  def projection[P: BSONDocumentWriter](projection: P): FindBuilder[R]
 
   def skip(skip: Int): FindBuilder[R]
 
-  def sort[S: BsonEncoder](sort: S): FindBuilder[R]
+  def sort[S: BSONDocumentWriter](sort: S): FindBuilder[R]
 }
 
 object FindBuilder {
@@ -52,27 +55,26 @@ object FindBuilder {
     Impl(database, options)
 
   private case class Impl(database: MongoDatabase, options: QueryBuilderOptions) extends FindBuilder[Collection] {
-    override def one[A](implicit ev: BsonDecoder[A]): ZIO[Collection, Throwable, Option[A]] =
+    override def one[A](implicit ev: BSONDocumentReader[A]): ZIO[Collection, Throwable, Option[A]] =
       ZIO.serviceWithZIO { collection =>
         makePublisher(collection, options, Some(1), 1)
           .first()
           .single
-          .map {
-            case Some(doc) => BsonDecoder[A].fromBsonValue(doc).map(Some(_))
-            case None      => Right(None)
+          .flatMap {
+            case Some(doc) => ZIO.fromTry(ev.readTry(toValue(doc)).map(Some(_)))
+            case None      => ZIO.none
           }
-          .absolve
       }
 
     override def stream[A](limit: Option[Int], chunkSize: Int)(implicit
-      ev: BsonDecoder[A]
+      ev: BSONDocumentReader[A]
     ): ZStream[Collection, Throwable, A] =
       (for {
         collection <- ZStream.service[Collection]
         doc        <- makePublisher(collection, options, limit, chunkSize).toZIOStream(chunkSize)
-      } yield BsonDecoder[A].fromBsonValue(doc)).absolve
+      } yield ev.readTry(doc).toEither).absolve
 
-    override def explain[A](implicit ev: BsonDecoder[A]): ZIO[Collection, Throwable, Option[A]] =
+    override def explain[A](implicit ev: BSONDocumentReader[A]): ZIO[Collection, Throwable, Option[A]] =
       copy(options = options.copy(explain = Some(true))).one[A]
 
     override def allowDiskUse(allowDiskUse: Boolean): FindBuilder[Collection] =
@@ -90,14 +92,14 @@ object FindBuilder {
     override def noCursorTimeout(noCursorTimeout: Boolean): FindBuilder[Collection] =
       copy(options = options.copy(noCursorTimeout = Some(noCursorTimeout)))
 
-    override def projection[P: BsonEncoder](projection: P): FindBuilder[Collection] =
-      copy(options = options.copy(projection = Some(() => BsonEncoder[P].toBsonValue(projection).asDocument())))
+    override def projection[P](projection: P)(implicit ev: BSONDocumentWriter[P]): FindBuilder[Collection] =
+      copy(options = options.copy(projection = Some(() => ev.writeTry(projection).get)))
 
     override def skip(skip: Int): FindBuilder[Collection] =
       copy(options = options.copy(skip = Some(skip)))
 
-    override def sort[S: BsonEncoder](sort: S): FindBuilder[Collection] =
-      copy(options = options.copy(sort = Some(() => BsonEncoder[S].toBsonValue(sort).asDocument())))
+    override def sort[S](sort: S)(implicit ev: BSONDocumentWriter[S]): FindBuilder[Collection] =
+      copy(options = options.copy(sort = Some(() => ev.writeTry(sort).get)))
 
     private def makePublisher(
       collection: Collection,
@@ -106,10 +108,10 @@ object FindBuilder {
       batchSize: Int
     ) = {
       val underlying = database.getCollection(collection.name, classOf[RawBsonDocument])
-      val sort       = options.sort.map(_.apply())
-      val projection = options.projection.map(_.apply())
-      val filter     = options.filter.map(_.apply())
-      val builder    = filter.fold(underlying.find())(underlying.find)
+      val sort       = options.sort.map(_.apply()).map(fromDocument)
+      val projection = options.projection.map(_.apply()).map(fromDocument)
+      val filter     = options.filter.map(_.apply()).map(fromDocument)
+      val builder    = filter.fold(underlying.find())(underlying.find(_))
 
       builder
         .sort(sort.orNull)

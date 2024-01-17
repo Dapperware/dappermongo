@@ -2,9 +2,10 @@ package dappermongo
 
 import com.mongodb.reactivestreams.client.MongoDatabase
 import dappermongo.results.{InsertedOne, Result}
-import org.bson.BsonValue
+import org.bson.conversions.Bson
+import reactivemongo.api.bson.BSONDocumentWriter
+import reactivemongo.api.bson.msb._
 import zio.ZIO
-import zio.bson.BsonEncoder
 
 import dappermongo.internal.PublisherOps
 
@@ -15,7 +16,7 @@ trait InsertOps {
 }
 
 trait InsertBuilder[-R] {
-  def one[U: BsonEncoder](u: U): ZIO[R, Throwable, Result[InsertedOne]]
+  def one[U: BSONDocumentWriter](u: U): ZIO[R, Throwable, Result[InsertedOne]]
 }
 
 object InsertBuilder {
@@ -24,13 +25,13 @@ object InsertBuilder {
     new Impl(database)
 
   private class Impl(database: MongoDatabase) extends InsertBuilder[Collection] {
-    override def one[U: BsonEncoder](u: U): ZIO[Collection, Throwable, Result[InsertedOne]] =
+    override def one[U](u: U)(implicit ev: BSONDocumentWriter[U]): ZIO[Collection, Throwable, Result[InsertedOne]] =
       ZIO.serviceWithZIO { collection =>
         MongoClient.currentSession.flatMap { session =>
           val coll = database
-            .getCollection(collection.name, classOf[BsonValue])
+            .getCollection(collection.name, classOf[Bson])
 
-          val value = BsonEncoder[U].toBsonValue(u)
+          val value: Bson = ev.writeTry(u).get
 
           session
             .fold(coll.insertOne(value))(coll.insertOne(_, value))
