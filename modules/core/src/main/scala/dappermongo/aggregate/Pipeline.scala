@@ -1,7 +1,11 @@
 package dappermongo.aggregate
 
-import zio.Chunk
+import zio.NonEmptyChunk
 
-case class Pipeline(first: Stage, rest: Chunk[Stage]) {
-  def ++[T <: Stage](that: T)(implicit ev: Combiner[T]): Pipeline = copy(rest = rest :+ that)
+case class Pipeline(stages: NonEmptyChunk[Stage]) {
+  def >>>[T <: Stage](that: T)(implicit ev: CanFollow[T]): Pipeline = {
+    implicit val _ = ev // To satisfy scalafix
+    copy(stages = stages :+ that)
+  }
+
 }

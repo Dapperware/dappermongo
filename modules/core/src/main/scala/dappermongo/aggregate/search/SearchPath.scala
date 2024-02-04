@@ -1,5 +1,6 @@
 package dappermongo.aggregate.search
 
+import reactivemongo.api.bson.{BSONArray, BSONString, BSONValue, BSONWriter, array, document}
 import zio.{Chunk, NonEmptyChunk}
 
 case class SearchPath(paths: NonEmptyChunk[SearchPath.Node]) {
@@ -22,5 +23,21 @@ object SearchPath {
     case class Analyzer(value: String, analyzer: String) extends Node
 
     case class Wildcard(value: String) extends Node
+  }
+
+  implicit val writer: BSONWriter[SearchPath] = BSONWriter[SearchPath] { path =>
+    val head = path.paths.head
+    val tail = path.paths.tail
+
+    def writeNode(node: Node): BSONValue = node match {
+      case Node.Field(name)               => BSONString(name)
+      case Node.Analyzer(value, analyzer) => document("value" -> value, "analyzer" -> analyzer)
+      case Node.Wildcard(value)           => document("wildcard" -> value)
+    }
+
+    tail match {
+      case Chunk() => writeNode(head)
+      case rest    => array(writeNode(head)) ++ array(rest.map(writeNode))
+    }
   }
 }
