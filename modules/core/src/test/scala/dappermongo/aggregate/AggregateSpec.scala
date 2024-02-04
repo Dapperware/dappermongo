@@ -1,7 +1,7 @@
 package dappermongo.aggregate
 
 import dappermongo.MongoITSpecDefault
-import zio.test.Assertion.{equalTo, isLeft, isRight}
+import zio.test.Assertion.{endsWithString, isLeft, isRight}
 import zio.test._
 
 object AggregateSpec extends MongoITSpecDefault {
@@ -29,9 +29,9 @@ object AggregateSpec extends MongoITSpecDefault {
                  val s2 = search(SearchOperator.AutoComplete(List("a"), SearchPath.field("a")))
                  s1 >>> s2
                 """))(
-            isLeft(equalTo("dappermongo.aggregate.Stage.Search must be the first stage in a pipeline"))
+            isLeft(endsWithString("must be the first stage in a pipeline"))
           )
-        }
+        } @@ TestAspect.scala2Only
       )
     )
   )

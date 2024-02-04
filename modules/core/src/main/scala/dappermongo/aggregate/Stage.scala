@@ -181,7 +181,7 @@ object Stage {
     implicit def writer: BSONDocumentWriter[Facet] =
       BSONDocumentWriter[Facet] { facet =>
         val facets = facet.facets.map { case (name, pipeline) =>
-          name -> pipeline.stages.map(_.toDocument.get)
+          name -> pipeline.stages.map(_.toDocument.get).toChunk
         }
         document("$facet" -> facets)
       }
