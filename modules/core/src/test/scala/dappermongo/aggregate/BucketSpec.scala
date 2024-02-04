@@ -1,6 +1,6 @@
 package dappermongo.aggregate
 
-import dappermongo.{Database, MongoClient, MongoITSpecDefault}
+import dappermongo.{Database, MongoITSpecDefault}
 import reactivemongo.api.bson.{BSONDocumentReader, BSONInteger, BSONString, BSONValue, Macros, array, document}
 import zio.ZIO
 import zio.test.assertTrue
@@ -152,10 +152,10 @@ object BucketSpec extends MongoITSpecDefault {
         )
 
       for {
-        db        <- ZIO.service[Database]
-        collection = db.collection("artists")
-        _         <- collection(db.insert.many(artists))
-        result    <- collection(db.aggregate(pipeline).one[BucketResult])
+        db         <- ZIO.service[Database]
+        collection <- newCollection("artists")
+        _          <- collection(db.insert.many(artists))
+        result     <- collection(db.aggregate(pipeline).one[BucketResult])
       } yield assertTrue(result.get == expected)
     },
     test("Use $bucket with $facet to Bucket by Multiple Fields") {
@@ -256,15 +256,15 @@ object BucketSpec extends MongoITSpecDefault {
       )
 
       for {
-        db        <- ZIO.service[Database]
-        collection = db.collection("artwork")
-        _         <- collection(db.insert.many(artwork))
-        result    <- collection(db.aggregate(pipeline).one[PriceAndArtworkResponse])
+        db         <- ZIO.service[Database]
+        collection <- newCollection("artwork")
+        _          <- collection(db.insert.many(artwork))
+        result     <- collection(db.aggregate(pipeline).one[PriceAndArtworkResponse])
       } yield assertTrue(
         result.get == response
       )
     }
-  ).provideSomeShared[MongoClient](
+  ).provideSomeShared[Env](
     database("aggregates")
   )
 

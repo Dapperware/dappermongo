@@ -1,6 +1,6 @@
 package dappermongo.aggregate
 
-import dappermongo.{Database, MongoClient, MongoITSpecDefault}
+import dappermongo.{Database, MongoITSpecDefault}
 import reactivemongo.api.bson.{BSONDocumentReader, BSONInteger, BSONString, BSONValue, Macros, array, document}
 import zio.ZIO
 import zio.test.assertTrue
@@ -135,7 +135,7 @@ object FacetSpec extends MongoITSpecDefault {
 
       for {
         db                    <- ZIO.service[Database]
-        collection             = db.collection("facets")
+        collection            <- newCollection("facets")
         _                     <- collection(db.insert.many(artwork))
         result                <- collection(db.aggregate(pipeline).one[FacetResult])
         categorizedByYearsAuto = result.map(_.categorizedByYearsAuto)
@@ -147,7 +147,7 @@ object FacetSpec extends MongoITSpecDefault {
           categorizedByTags.get.sortBy(tb => tb.count -> tb._id) == expected.categorizedByTags
       )
     }
-  ).provideSomeShared[MongoClient](
+  ).provideSomeShared[Env](
     database("aggregates")
   )
 

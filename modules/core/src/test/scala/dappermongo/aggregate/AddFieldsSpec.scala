@@ -1,6 +1,6 @@
 package dappermongo.aggregate
 
-import dappermongo.{Database, MongoClient, MongoITSpecDefault}
+import dappermongo.{Database, MongoITSpecDefault}
 import reactivemongo.api.bson.{BSONDocumentReader, Macros, array, document}
 import zio.test.assertTrue
 import zio.{Chunk, ZIO}
@@ -61,10 +61,10 @@ object AddFieldsSpec extends MongoITSpecDefault {
       )
 
       for {
-        db        <- ZIO.service[Database]
-        collection = db.collection("scores")
-        _         <- collection(db.insert.many(scores))
-        result    <- collection(db.aggregate(pipeline).stream[StudentScore].runCollect)
+        db         <- ZIO.service[Database]
+        collection <- newCollection("scores")
+        _          <- collection(db.insert.many(scores))
+        result     <- collection(db.aggregate(pipeline).stream[StudentScore].runCollect)
       } yield assertTrue(
         result == Chunk(
           StudentScore(
@@ -102,10 +102,10 @@ object AddFieldsSpec extends MongoITSpecDefault {
       )
 
       for {
-        db        <- ZIO.service[Database]
-        collection = db.collection("vehicles")
-        _         <- collection(db.insert.many(vehicles))
-        result    <- collection(db.aggregate(pipeline).stream[Vehicle].runCollect)
+        db         <- ZIO.service[Database]
+        collection <- newCollection("vehicles")
+        _          <- collection(db.insert.many(vehicles))
+        result     <- collection(db.aggregate(pipeline).stream[Vehicle].runCollect)
       } yield assertTrue(
         result == Chunk(
           Vehicle(
@@ -136,10 +136,10 @@ object AddFieldsSpec extends MongoITSpecDefault {
       )
 
       for {
-        db        <- ZIO.service[Database]
-        collection = db.collection("animals")
-        _         <- collection(db.insert.many(animals))
-        result    <- collection(db.aggregate(pipeline).stream[Animal].runCollect)
+        db         <- ZIO.service[Database]
+        collection <- newCollection("animals")
+        _          <- collection(db.insert.many(animals))
+        result     <- collection(db.aggregate(pipeline).stream[Animal].runCollect)
       } yield assertTrue(
         result == Chunk(
           Animal(_id = 1, dogs = 10, cats = 20)
@@ -161,10 +161,10 @@ object AddFieldsSpec extends MongoITSpecDefault {
       )
 
       for {
-        db        <- ZIO.service[Database]
-        collection = db.collection("fruit")
-        _         <- collection(db.insert.many(fruits))
-        result    <- collection(db.aggregate(pipeline).stream[Fruit].runCollect)
+        db         <- ZIO.service[Database]
+        collection <- newCollection("fruit")
+        _          <- collection(db.insert.many(fruits))
+        result     <- collection(db.aggregate(pipeline).stream[Fruit].runCollect)
       } yield assertTrue(
         result == Chunk(
           Fruit(_id = "tangerine", item = "fruit", `type` = "citrus"),
@@ -196,17 +196,17 @@ object AddFieldsSpec extends MongoITSpecDefault {
       )
 
       for {
-        db        <- ZIO.service[Database]
-        collection = db.collection("scores_2")
-        _         <- collection(db.insert.many(scores))
-        result    <- collection(db.aggregate(pipeline).stream[Score].runCollect)
+        db         <- ZIO.service[Database]
+        collection <- newCollection("scores_2")
+        _          <- collection(db.insert.many(scores))
+        result     <- collection(db.aggregate(pipeline).stream[Score].runCollect)
       } yield assertTrue(
         result == Chunk(
           Score(_id = 1, student = "Maya", homework = List(10, 5, 10, 7), quiz = List(10, 8), extraCredit = 0)
         )
       )
     }
-  ).provideSomeShared[MongoClient](
+  ).provideSomeShared[Environment](
     database("aggregates")
   )
 

@@ -7,7 +7,7 @@ import dappermongo.aggregate.Pipeline
 import dappermongo.internal.{CollectionConversionsVersionSpecific, _}
 import org.bson.RawBsonDocument
 import reactivemongo.api.bson.msb._
-import reactivemongo.api.bson.{BSON, BSONDocumentReader, BSONDocumentWriter, BSONValue, BSONWriter}
+import reactivemongo.api.bson.{BSON, BSONDocument, BSONDocumentReader, BSONDocumentWriter}
 import zio.stream.ZStream
 import zio.{Duration, ZIO}
 
@@ -29,7 +29,7 @@ trait AggregateBuilder[-R] {
 
   def collation(collation: Option[Collation]): AggregateBuilder[R]
 
-  def comment[T: BSONWriter](comment: T): AggregateBuilder[R]
+  def comment[T: BSONDocumentWriter](comment: T): AggregateBuilder[R]
 
   def hint[T: BSONDocumentWriter](hint: T): AggregateBuilder[R]
 
@@ -67,11 +67,11 @@ object AggregateBuilder {
     override def collation(collation: Option[Collation]): AggregateBuilder[Collection] =
       copy(options = options.copy(collation = collation))
 
-    override def comment[T: BSONWriter](comment: T): AggregateBuilder[Collection] =
-      copy(options = options.copy(comment = Some(() => BSON.write(comment))))
+    override def comment[T: BSONDocumentWriter](comment: T): AggregateBuilder[Collection] =
+      copy(options = options.copy(comment = Some(() => BSON.writeDocument(comment))))
 
     override def hint[T: BSONDocumentWriter](hint: T): AggregateBuilder[Collection] =
-      copy(options = options.copy(hint = Some(() => BSON.write(hint))))
+      copy(options = options.copy(hint = Some(() => BSON.writeDocument(hint))))
 
     override def maxTime(maxTime: Duration): AggregateBuilder[Collection] =
       copy(options = options.copy(maxTime = Some(maxTime)))
@@ -81,35 +81,34 @@ object AggregateBuilder {
 
     override def out(collection: Collection): ZIO[Collection, Throwable, Unit] =
       ZIO.serviceWithZIO { collection =>
-        makePublisher(collection, pipeline, options, None, None).empty
+        makePublisher(collection, pipeline, options, None).flatMap(_.empty)
       }
 
     override def one[T](implicit ev: BSONDocumentReader[T]): ZIO[Collection, Throwable, Option[T]] =
       ZIO.serviceWithZIO { collection =>
         MongoClient.currentSession.flatMap { session =>
-          makePublisher(collection, pipeline, options, Some(1), session)
-            .first()
-            .single
-            .flatMap {
+          makePublisher(collection, pipeline, options, session).flatMap {
+            _.first().single.flatMap {
               case Some(doc) => ZIO.fromTry(ev.readTry(toValue(doc)).map(Some(_)))
               case None      => ZIO.none
             }
+          }
         }
       }
 
     override def stream[T](implicit ev: BSONDocumentReader[T]): ZStream[Collection, Throwable, T] =
       (for {
         collection <- ZStream.service[Collection]
-        doc        <- makePublisher(collection, pipeline, options, None, None).toZIOStream()
+        publisher  <- ZStream.fromZIO(makePublisher(collection, pipeline, options, None))
+        doc        <- publisher.toZIOStream()
       } yield ev.readTry(doc).toEither).absolve
 
     private def makePublisher(
       collection: Collection,
       pipeline: Pipeline,
       options: AggregateBuilderOptions,
-      limit: Option[Int],
       session: Option[ClientSession]
-    ) = {
+    ) = ZIO.attempt {
       val underlying = database.getCollection(collection.name, classOf[RawBsonDocument])
       val encoded = listAsJava(
         pipeline.stages.reduceMapLeft(stage => List(fromDocument(BSON.writeDocument(stage).get))) { (acc, stage) =>
@@ -117,9 +116,17 @@ object AggregateBuilder {
         }
       )
 
-      // TODO encode options
+      val hint    = options.hint.map(_.apply()).map(_.map(fromDocument).get)
+      val comment = options.comment.map(_.apply()).map(_.map(fromDocument).get)
 
-      val builder = session.fold(underlying.aggregate(encoded))(underlying.aggregate(_, encoded))
+      val builder = session
+        .fold(underlying.aggregate(encoded))(underlying.aggregate(_, encoded))
+        .hint(hint.orNull)
+        .allowDiskUse(options.allowDiskUse.map(Boolean.box).orNull)
+        .bypassDocumentValidation(options.bypassDocumentValidation.map(Boolean.box).orNull)
+        .maxTime(options.maxTime.map(_.toMillis).getOrElse(0L), java.util.concurrent.TimeUnit.MILLISECONDS)
+        .maxAwaitTime(options.maxAwaitTime.map(_.toMillis).getOrElse(0L), java.util.concurrent.TimeUnit.MILLISECONDS)
+        .comment(comment.orNull)
 
       builder
     }
@@ -130,8 +137,8 @@ object AggregateBuilder {
     batchSize: Option[Int] = None,
     bypassDocumentValidation: Option[Boolean] = None,
     collation: Option[Collation] = None,
-    comment: Option[() => Try[BSONValue]] = None,
-    hint: Option[() => Try[BSONValue]] = None,
+    comment: Option[() => Try[BSONDocument]] = None,
+    hint: Option[() => Try[BSONDocument]] = None,
     maxTime: Option[Duration] = None,
     maxAwaitTime: Option[Duration] = None
   )

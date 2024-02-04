@@ -1,5 +1,5 @@
 import dappermongo.aggregate.Stage
-import dappermongo.{Database, MongoClient, MongoITSpecDefault}
+import dappermongo.{Database, MongoITSpecDefault}
 import reactivemongo.api.bson.{BSONDocument, BSONDocumentReader, BSONNull, Macros, array, document}
 import zio.test._
 import zio.{Chunk, ZIO}
@@ -25,10 +25,10 @@ object MatchSpec extends MongoITSpecDefault {
       val pipeline = Stage.`match`(document("author" -> "dave"))
 
       for {
-        db        <- ZIO.service[Database]
-        collection = db.collection("articles")
-        _         <- collection(db.insert.many(articles))
-        result    <- collection(db.aggregate(pipeline).stream[Article].runCollect)
+        db         <- ZIO.service[Database]
+        collection <- newCollection("articles")
+        _          <- collection(db.insert.many(articles))
+        result     <- collection(db.aggregate(pipeline).stream[Article].runCollect)
       } yield assertTrue(
         result == Chunk(
           Article(_id = "512bc95fe835e68f199c8686", author = "dave", score = 80, views = 100),
@@ -47,13 +47,13 @@ object MatchSpec extends MongoITSpecDefault {
       ) >>> Stage.group(document("_id" -> BSONNull), document("count" -> document("$sum" -> 1)))
 
       for {
-        db        <- ZIO.service[Database]
-        collection = db.collection("articles_2")
-        _         <- collection(db.insert.many(articles))
-        result    <- collection(db.aggregate(pipeline).one[BSONDocument])
+        db         <- ZIO.service[Database]
+        collection <- newCollection("articles_2")
+        _          <- collection(db.insert.many(articles))
+        result     <- collection(db.aggregate(pipeline).one[BSONDocument])
       } yield assertTrue(result.get.getAsOpt[Int]("count").contains(5))
     }
-  ).provideSomeShared[MongoClient](
+  ).provideSomeShared[Env](
     database("aggregates")
   )
 }
