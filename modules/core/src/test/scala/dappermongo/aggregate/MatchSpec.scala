@@ -1,8 +1,8 @@
-import dappermongo.{Database, MongoClient, MongoITSpecDefault}
 import dappermongo.aggregate.Stage
+import dappermongo.{Database, MongoClient, MongoITSpecDefault}
 import reactivemongo.api.bson.{BSONDocument, BSONDocumentReader, BSONNull, Macros, array, document}
-import zio.{Chunk, ZIO}
 import zio.test._
+import zio.{Chunk, ZIO}
 
 object MatchSpec extends MongoITSpecDefault {
 

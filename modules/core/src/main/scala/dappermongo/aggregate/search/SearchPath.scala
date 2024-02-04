@@ -1,6 +1,6 @@
 package dappermongo.aggregate.search
 
-import reactivemongo.api.bson.{BSONArray, BSONString, BSONValue, BSONWriter, array, document}
+import reactivemongo.api.bson.{BSONString, BSONValue, BSONWriter, array, document}
 import zio.{Chunk, NonEmptyChunk}
 
 case class SearchPath(paths: NonEmptyChunk[SearchPath.Node]) {

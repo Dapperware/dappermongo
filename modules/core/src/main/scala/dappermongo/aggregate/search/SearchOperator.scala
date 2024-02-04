@@ -1,15 +1,9 @@
 package dappermongo.aggregate.search
 
 import dappermongo.aggregate.search.SearchOperator.AutoComplete.{Fuzzy, TokenOrder}
-import reactivemongo.api.bson.{
-  BSONDocument,
-  BSONDocumentWriter,
-  BSONString,
-  BSONValue,
-  BSONWriter,
-  collectionWriter,
-  document
-}
+import reactivemongo.api.bson.{BSONDocument, BSONDocumentWriter, BSONString, BSONValue, BSONWriter, document}
+
+import reactivemongo.api.bson.collectionWriter
 
 sealed trait SearchOperator
 

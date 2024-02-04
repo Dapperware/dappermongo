@@ -1,18 +1,9 @@
 package dappermongo.aggregate
 
 import dappermongo.{Database, MongoClient, MongoITSpecDefault}
-import reactivemongo.api.bson.{
-  BSONDocumentReader,
-  BSONDocumentWriter,
-  BSONInteger,
-  BSONString,
-  BSONValue,
-  Macros,
-  array,
-  document
-}
+import reactivemongo.api.bson.{BSONDocumentReader, BSONInteger, BSONString, BSONValue, Macros, array, document}
+import zio.ZIO
 import zio.test.assertTrue
-import zio.{Chunk, ZIO}
 
 object BucketSpec extends MongoITSpecDefault {
 

@@ -1,8 +1,10 @@
 package dappermongo
 
 import dappermongo.MongoITSpecDefault.layer
-import zio.{Chunk, ZIO, ZLayer, durationInt}
 import zio.test.{TestAspect, TestAspectAtLeastR, TestEnvironment, ZIOSpec}
+import zio.{Chunk, ZIO, ZLayer}
+
+import zio.durationInt
 
 abstract class MongoITSpecDefault extends ZIOSpec[MongoClient] {
 

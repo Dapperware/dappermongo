@@ -1,12 +1,14 @@
 package dappermongo
 
 import com.mongodb.reactivestreams.client.MongoDatabase
+import dappermongo.internal.CollectionConversionsVersionSpecific
 import dappermongo.results.{InsertedMany, InsertedOne, Result}
 import org.bson.conversions.Bson
-import reactivemongo.api.bson.{BSONDocumentWriter, BSONValue}
+import reactivemongo.api.bson.BSONDocumentWriter
 import reactivemongo.api.bson.msb._
 import zio.ZIO
-import dappermongo.internal.{CollectionConversionsVersionSpecific, PublisherOps}
+
+import dappermongo.internal.PublisherOps
 
 trait InsertOps {
 
@@ -55,7 +57,7 @@ object InsertBuilder {
           val coll = database
             .getCollection(collection.name, classOf[Bson])
 
-          val values: java.util.List[Bson] = listAsJava(us.map(ev.writeTry(_).get))
+          val values: java.util.List[Bson] = listAsJava(us.map(u => fromDocument(ev.writeTry(u).get)))
 
           session
             .fold(coll.insertMany(values))(coll.insertMany(_, values))
@@ -63,7 +65,9 @@ object InsertBuilder {
             .map(
               _.fold[Result[InsertedMany]](Result.Unacknowledged)(result =>
                 Result.Acknowledged(
-                  InsertedMany(mapAsScala(result.getInsertedIds).view.map[Int, BSONValue](kv => (kv._1, kv._2)).toMap)
+                  InsertedMany(
+                    mapAsScala(result.getInsertedIds).view.map(kv => (kv._1.intValue(), toValue(kv._2))).toMap
+                  )
                 )
               )
             )

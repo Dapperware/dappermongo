@@ -1,6 +1,8 @@
 package dappermongo.aggregate
 
-import dappermongo.aggregate.search.{SearchOperator, SearchPath}
+import scala.util.Try
+
+import dappermongo.aggregate.search.SearchOperator
 import reactivemongo.api.bson.{
   BSON,
   BSONArray,
@@ -13,8 +15,6 @@ import reactivemongo.api.bson.{
   document
 }
 import zio.NonEmptyChunk
-
-import scala.util.Try
 
 /**
  * A stage in the aggregation pipeline. Most stages can be combined with other
