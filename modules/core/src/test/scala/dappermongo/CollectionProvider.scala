@@ -9,9 +9,11 @@ trait CollectionProvider {
 }
 
 object CollectionProvider {
-  val live: ULayer[CollectionProvider] = ZLayer.succeed(new CollectionProvider {
+  val live: ULayer[CollectionProvider] = ZLayer(for {
+    random <- ZIO.random
+  } yield new CollectionProvider {
     override def collection(name: String): ZIO[Any, Throwable, Collection] =
-      Random
+      random
         .nextIntBetween(1, Int.MaxValue)
         .map(suffix => Collection(s"${name}_$suffix"))
   })
