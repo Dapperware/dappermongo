@@ -15,9 +15,9 @@ object QuerySpec extends MongoITSpecDefault {
     test("insert and find") {
 
       for {
-        client    <- ZIO.service[MongoClient]
-        db        <- client.database("test")
-        collection = db.collection("people")
+        client     <- ZIO.service[MongoClient]
+        db         <- client.database("test")
+        collection <- newCollection("people")
         result <- collection(
                     db.insert.one(Person("John", 42)) *>
                       db.find(Person("John", 42)).one[Person]
@@ -27,9 +27,9 @@ object QuerySpec extends MongoITSpecDefault {
     test("insert, delete and find") {
 
       for {
-        client    <- ZIO.service[MongoClient]
-        db        <- client.database("test")
-        collection = db.collection("people2")
+        client     <- ZIO.service[MongoClient]
+        db         <- client.database("test")
+        collection <- newCollection("people2")
         result <- collection(
                     db.insert.one(Person("John", 42)) *>
                       db.delete.one(Person("John", 42)) *>

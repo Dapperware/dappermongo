@@ -1,11 +1,13 @@
 package dappermongo
 
 import com.mongodb.reactivestreams.client.MongoDatabase
+import dappermongo.aggregate.Pipeline
 import reactivemongo.api.bson.{BSONDocument, BSONDocumentWriter}
 import zio.{ZIO, ZLayer}
 
 trait Database
-    extends FindOps
+    extends AggregateOps
+    with FindOps
     with UpdateOps
     with InsertOps
     with DeleteOps
@@ -56,6 +58,8 @@ object Database {
     override def replace: ReplaceBuilder[Collection] = ReplaceBuilder(database)
 
     override def count: CountBuilder[Collection] = CountBuilder(database)
+
+    override def aggregate(pipeline: Pipeline): AggregateBuilder[Collection] = AggregateBuilder(database, pipeline)
   }
 
 }

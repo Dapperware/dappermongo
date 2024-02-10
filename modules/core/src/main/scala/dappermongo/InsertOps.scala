@@ -1,7 +1,8 @@
 package dappermongo
 
 import com.mongodb.reactivestreams.client.MongoDatabase
-import dappermongo.results.{InsertedOne, Result}
+import dappermongo.internal.CollectionConversionsVersionSpecific
+import dappermongo.results.{InsertedMany, InsertedOne, Result}
 import org.bson.conversions.Bson
 import reactivemongo.api.bson.BSONDocumentWriter
 import reactivemongo.api.bson.msb._
@@ -17,6 +18,8 @@ trait InsertOps {
 
 trait InsertBuilder[-R] {
   def one[U: BSONDocumentWriter](u: U): ZIO[R, Throwable, Result[InsertedOne]]
+
+  def many[U: BSONDocumentWriter](us: List[U]): ZIO[R, Throwable, Result[InsertedMany]]
 }
 
 object InsertBuilder {
@@ -24,7 +27,9 @@ object InsertBuilder {
   def apply(database: MongoDatabase): InsertBuilder[Collection] =
     new Impl(database)
 
-  private class Impl(database: MongoDatabase) extends InsertBuilder[Collection] {
+  private class Impl(database: MongoDatabase)
+      extends InsertBuilder[Collection]
+      with CollectionConversionsVersionSpecific {
     override def one[U](u: U)(implicit ev: BSONDocumentWriter[U]): ZIO[Collection, Throwable, Result[InsertedOne]] =
       ZIO.serviceWithZIO { collection =>
         MongoClient.currentSession.flatMap { session =>
@@ -39,6 +44,31 @@ object InsertBuilder {
             .map(
               _.fold[Result[InsertedOne]](Result.Unacknowledged)(result =>
                 Result.Acknowledged(InsertedOne(Option(result.getInsertedId)))
+              )
+            )
+        }
+      }
+
+    override def many[U](
+      us: List[U]
+    )(implicit ev: BSONDocumentWriter[U]): ZIO[Collection, Throwable, Result[InsertedMany]] =
+      ZIO.serviceWithZIO { collection =>
+        MongoClient.currentSession.flatMap { session =>
+          val coll = database
+            .getCollection(collection.name, classOf[Bson])
+
+          val values: java.util.List[Bson] = listAsJava(us.map(u => fromDocument(ev.writeTry(u).get)))
+
+          session
+            .fold(coll.insertMany(values))(coll.insertMany(_, values))
+            .single
+            .map(
+              _.fold[Result[InsertedMany]](Result.Unacknowledged)(result =>
+                Result.Acknowledged(
+                  InsertedMany(
+                    mapAsScala(result.getInsertedIds).view.map(kv => (kv._1.intValue(), toValue(kv._2))).toMap
+                  )
+                )
               )
             )
         }
