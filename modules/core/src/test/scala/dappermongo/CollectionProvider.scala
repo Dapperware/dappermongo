@@ -1,6 +1,6 @@
 package dappermongo
 
-import zio.{Random, ULayer, ZIO, ZLayer}
+import zio.{ULayer, ZIO, ZLayer}
 
 trait CollectionProvider {
   def collection: ZIO[Any, Throwable, Collection] = collection("test_collection")

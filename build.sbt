@@ -53,7 +53,16 @@ lazy val core = (project in file("modules/core"))
     ),
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
     Test / fork   := true,
-    scalacOptions := scalacOptionsVersion(scalaVersion.value)
+    scalacOptions := scalacOptionsVersion(scalaVersion.value),
+    // Mock silencer for Scala3
+    // Copied from https://github.com/ReactiveMongo/ReactiveMongo-BSON/blob/master/build.sbt
+    Test / doc / scalacOptions ++= List("-skip-packages", "com.github.ghik"),
+    Compile / packageBin / mappings ~= {
+      _.filter { case (_, path) => !path.startsWith("com/github/ghik") }
+    },
+    Compile / packageSrc / mappings ~= {
+      _.filter { case (_, path) => path != "silent.scala" }
+    }
   )
 
 //lazy val docs = project
