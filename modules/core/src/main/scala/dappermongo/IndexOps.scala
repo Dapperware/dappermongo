@@ -1,7 +1,7 @@
 package dappermongo
 
 import com.mongodb.client.model.{CreateIndexOptions, IndexModel, Indexes}
-import com.mongodb.reactivestreams.client.MongoDatabase
+import com.mongodb.reactivestreams.client.{ClientSession, MongoDatabase}
 import dappermongo.internal.CollectionConversionsVersionSpecific
 import java.util
 import org.bson.conversions.Bson
@@ -32,10 +32,11 @@ trait IndexBuilder[-R] {
 }
 
 object IndexBuilder extends CollectionConversionsVersionSpecific {
-  case class Impl(database: MongoDatabase) extends IndexBuilder[Collection] {
+  case class Impl(database: MongoDatabase, sessionStorage: SessionStorage[ClientSession])
+      extends IndexBuilder[Collection] {
     override def list[T](implicit ev: BSONDocumentReader[T]): ZStream[Collection, Throwable, T] =
       for {
-        session    <- ZStream.fromZIO(MongoClient.currentSession)
+        session    <- ZStream.fromZIO(sessionStorage.get)
         collection <- ZStream.service[Collection]
         jcollection = database.getCollection(collection.name, classOf[Bson])
         index <- session
@@ -50,7 +51,7 @@ object IndexBuilder extends CollectionConversionsVersionSpecific {
 
     override def create(indexes: List[Index], options: CreateIndexOptions): ZIO[Collection, Throwable, Unit] =
       for {
-        session    <- MongoClient.currentSession
+        session    <- sessionStorage.get
         collection <- ZIO.service[Collection]
         jcollection = database.getCollection(collection.name)
         jIndexes    = seqAsJava(indexes.map(toIndexModel))
@@ -63,7 +64,7 @@ object IndexBuilder extends CollectionConversionsVersionSpecific {
 
     override def drop(indexName: String): ZIO[Collection, Throwable, Unit] =
       for {
-        session    <- MongoClient.currentSession
+        session    <- sessionStorage.get
         collection <- ZIO.service[Collection]
         jcollection = database.getCollection(collection.name)
         _ <- session
@@ -75,7 +76,7 @@ object IndexBuilder extends CollectionConversionsVersionSpecific {
 
     override def dropAll(): ZIO[Collection, Throwable, Unit] =
       for {
-        session    <- MongoClient.currentSession
+        session    <- sessionStorage.get
         collection <- ZIO.service[Collection]
         jcollection = database.getCollection(collection.name)
         _          <- session.fold(jcollection.dropIndexes())(jcollection.dropIndexes).empty

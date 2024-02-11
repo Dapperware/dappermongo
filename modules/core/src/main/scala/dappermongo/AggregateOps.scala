@@ -1,13 +1,10 @@
 package dappermongo
-
-import scala.util.Try
-
 import com.mongodb.reactivestreams.client.{ClientSession, MongoDatabase}
 import dappermongo.aggregate.Pipeline
 import dappermongo.internal.{CollectionConversionsVersionSpecific, _}
 import org.bson.RawBsonDocument
 import reactivemongo.api.bson.msb._
-import reactivemongo.api.bson.{BSON, BSONDocument, BSONDocumentReader, BSONDocumentWriter}
+import reactivemongo.api.bson.{BSON, BSONDocumentReader, BSONDocumentWriter}
 import zio.stream.ZStream
 import zio.{Duration, ZIO}
 
@@ -48,11 +45,19 @@ trait AggregateBuilder[-R] {
 }
 
 object AggregateBuilder {
-  def apply(database: MongoDatabase, pipeline: Pipeline): AggregateBuilder[Collection] =
-    Impl(database, pipeline, AggregateBuilderOptions())
+  def apply(
+    database: MongoDatabase,
+    pipeline: Pipeline,
+    sessionStorage: SessionStorage[ClientSession]
+  ): AggregateBuilder[Collection] =
+    Impl(database, pipeline, AggregateBuilderOptions(), sessionStorage)
 
-  private case class Impl(database: MongoDatabase, pipeline: Pipeline, options: AggregateBuilderOptions)
-      extends AggregateBuilder[Collection]
+  private case class Impl(
+    database: MongoDatabase,
+    pipeline: Pipeline,
+    options: AggregateBuilderOptions,
+    sessionStorage: SessionStorage[ClientSession]
+  ) extends AggregateBuilder[Collection]
       with CollectionConversionsVersionSpecific {
 
     override def allowDiskUse(allowDiskUse: Boolean): AggregateBuilder[Collection] =
@@ -68,10 +73,10 @@ object AggregateBuilder {
       copy(options = options.copy(collation = collation))
 
     override def comment[T: BSONDocumentWriter](comment: T): AggregateBuilder[Collection] =
-      copy(options = options.copy(comment = Some(() => BSON.writeDocument(comment))))
+      copy(options = options.copy(comment = Some(DocumentEncodedFn(BSON.writeDocument(comment)))))
 
     override def hint[T: BSONDocumentWriter](hint: T): AggregateBuilder[Collection] =
-      copy(options = options.copy(hint = Some(() => BSON.writeDocument(hint))))
+      copy(options = options.copy(hint = Some(DocumentEncodedFn(BSON.writeDocument(hint)))))
 
     override def maxTime(maxTime: Duration): AggregateBuilder[Collection] =
       copy(options = options.copy(maxTime = Some(maxTime)))
@@ -86,7 +91,7 @@ object AggregateBuilder {
 
     override def one[T](implicit ev: BSONDocumentReader[T]): ZIO[Collection, Throwable, Option[T]] =
       ZIO.serviceWithZIO { collection =>
-        MongoClient.currentSession.flatMap { session =>
+        sessionStorage.get.flatMap { session =>
           makePublisher(collection, pipeline, options, session).flatMap {
             _.first().single.flatMap {
               case Some(doc) => ZIO.fromTry(ev.readTry(toValue(doc)).map(Some(_)))
@@ -137,8 +142,8 @@ object AggregateBuilder {
     batchSize: Option[Int] = None,
     bypassDocumentValidation: Option[Boolean] = None,
     collation: Option[Collation] = None,
-    comment: Option[() => Try[BSONDocument]] = None,
-    hint: Option[() => Try[BSONDocument]] = None,
+    comment: Option[DocumentEncodedFn] = None,
+    hint: Option[DocumentEncodedFn] = None,
     maxTime: Option[Duration] = None,
     maxAwaitTime: Option[Duration] = None
   )

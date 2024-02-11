@@ -1,12 +1,13 @@
 package dappermongo
 
 import com.mongodb.reactivestreams.client.{ClientSession, DistinctPublisher, MongoDatabase}
+import dappermongo.internal.{DocumentEncodedFn, traverseOption}
 import java.util.concurrent.TimeUnit
 import org.bson.RawBsonDocument
 import reactivemongo.api.bson.msb._
-import reactivemongo.api.bson.{BSON, BSONDocument, BSONDocumentWriter, BSONReader, document}
-import zio.stream.ZSink
-import zio.{Chunk, Duration, ZIO}
+import reactivemongo.api.bson.{BSON, BSONDocumentWriter, BSONReader, document}
+import zio.stream.{ZSink, ZStream}
+import zio.{Chunk, Duration, Task, ZIO}
 
 import zio.interop.reactivestreams.publisherToStream
 
@@ -34,11 +35,15 @@ trait DistinctBuilder[-R] {
 
 object DistinctBuilder {
 
-  private[dappermongo] def apply(mongoDatabase: MongoDatabase, field: String): DistinctBuilder[Collection] =
-    Impl(mongoDatabase, field)
+  private[dappermongo] def apply(
+    mongoDatabase: MongoDatabase,
+    field: String,
+    sessionStorage: SessionStorage[ClientSession]
+  ): DistinctBuilder[Collection] =
+    Impl(mongoDatabase, field, sessionStorage)
 
   private case class DistinctBuilderOptions(
-    filter: Option[() => BSONDocument] = None,
+    filter: Option[DocumentEncodedFn] = None,
     maxTime: Option[Duration] = None,
     collation: Option[Collation] = None,
     batchSize: Option[Int] = None,
@@ -47,10 +52,11 @@ object DistinctBuilder {
   private case class Impl(
     database: MongoDatabase,
     field: String,
+    sessionStorage: SessionStorage[ClientSession],
     options: DistinctBuilderOptions = DistinctBuilderOptions()
   ) extends DistinctBuilder[Collection] {
     override def filter[T](filter: T)(implicit ev: BSONDocumentWriter[T]): DistinctBuilder[Collection] =
-      copy(options = options.copy(filter = Some(() => ev.writeTry(filter).get)))
+      copy(options = options.copy(filter = Some(DocumentEncodedFn(ev.writeTry(filter)))))
 
     override def maxTime(maxTime: Duration): DistinctBuilder[Collection] =
       copy(options = options.copy(maxTime = Some(maxTime)))
@@ -72,9 +78,9 @@ object DistinctBuilder {
 
     private def to[T: BSONReader, Out](sink: ZSink[Any, Throwable, T, Nothing, Out]): ZIO[Collection, Throwable, Out] =
       ZIO.serviceWithZIO { collection =>
-        MongoClient.currentSession.flatMap { session =>
-          makePublisher(session, collection, options)
-            .toZIOStream()
+        sessionStorage.get.flatMap { session =>
+          ZStream
+            .unwrap(makePublisher(session, collection, options).map(_.toZIOStream()))
             .map(doc => BSON.read[T](doc).fold(Left(_), Right(_)))
             .absolve
             .run(sink)
@@ -85,22 +91,26 @@ object DistinctBuilder {
       session: Option[ClientSession],
       collection: Collection,
       options: DistinctBuilderOptions
-    ): DistinctPublisher[RawBsonDocument] = {
-      val coll       = database.getCollection(collection.name, classOf[org.bson.RawBsonDocument])
-      val filter     = fromDocument(options.filter.map(_.apply()).getOrElse(document))
-      val collation0 = options.collation.map(_.asJava).orNull
-      val publisher = {
-        session.fold(coll.distinct(field, filter, classOf[RawBsonDocument]))(
-          coll.distinct(_, field, filter, classOf[RawBsonDocument])
-        )
+    ): Task[DistinctPublisher[RawBsonDocument]] = ZIO.fromTry {
+      val coll = database.getCollection(collection.name, classOf[org.bson.RawBsonDocument])
+      for {
+        maybeFilter <- traverseOption(options.filter.map(_.apply()))
+      } yield {
+        val filter     = fromDocument(maybeFilter.getOrElse(document))
+        val collation0 = options.collation.map(_.asJava).orNull
+        val publisher = {
+          session.fold(coll.distinct(field, filter, classOf[RawBsonDocument]))(
+            coll.distinct(_, field, filter, classOf[RawBsonDocument])
+          )
+        }
+
+        options.batchSize.foreach(publisher.batchSize)
+        options.comment.foreach(publisher.comment)
+        options.maxTime.foreach(d => publisher.maxTime(d.toMillis, TimeUnit.MILLISECONDS))
+        publisher.collation(collation0)
+
+        publisher
       }
-
-      options.batchSize.foreach(publisher.batchSize)
-      options.comment.foreach(publisher.comment)
-      options.maxTime.foreach(d => publisher.maxTime(d.toMillis, TimeUnit.MILLISECONDS))
-      publisher.collation(collation0)
-
-      publisher
     }
   }
 }

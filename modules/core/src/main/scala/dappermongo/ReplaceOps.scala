@@ -1,7 +1,7 @@
 package dappermongo
 
 import com.mongodb.client.model.ReplaceOptions
-import com.mongodb.reactivestreams.client.{MongoCollection, MongoDatabase}
+import com.mongodb.reactivestreams.client.{ClientSession, MongoCollection, MongoDatabase}
 import dappermongo.results.{Result, Updated}
 import org.bson.BsonValue
 import org.bson.conversions.Bson
@@ -34,8 +34,8 @@ trait ReplaceBuilder[-R] {
 
 object ReplaceBuilder {
 
-  def apply(database: MongoDatabase): ReplaceBuilder[Collection] =
-    Impl(database, ReplaceBuilderOptions())
+  def apply(database: MongoDatabase, sessionStorage: SessionStorage[ClientSession]): ReplaceBuilder[Collection] =
+    Impl(database, ReplaceBuilderOptions(), sessionStorage)
 
   private case class ReplaceBuilderOptions(
     upsert: Option[Boolean] = None,
@@ -45,13 +45,17 @@ object ReplaceBuilder {
     variables: Option[Bson] = None
   )
 
-  private case class Impl(database: MongoDatabase, options: ReplaceBuilderOptions) extends ReplaceBuilder[Collection] {
+  private case class Impl(
+    database: MongoDatabase,
+    options: ReplaceBuilderOptions,
+    sessionStorage: SessionStorage[ClientSession]
+  ) extends ReplaceBuilder[Collection] {
     override def one[Q, U](
       q: Q,
       u: U
     )(implicit evQ: BSONDocumentWriter[Q], evU: BSONDocumentWriter[U]): ZIO[Collection, Throwable, Result[Updated]] =
       ZIO.serviceWithZIO { collection =>
-        MongoClient.currentSession.flatMap { session =>
+        sessionStorage.get.flatMap { session =>
           val coll = withLocalSettings(database.getCollection(collection.name, classOf[BsonValue]), collection)
 
           val query: Bson      = evQ.writeTry(q).get

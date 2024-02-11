@@ -2,7 +2,7 @@ package dappermongo
 
 import com.mongodb.reactivestreams.client.ClientSession
 import dappermongo.Session.TransactionRestorer
-import zio.{Exit, Scope, ZIO}
+import zio.{Exit, Scope, Trace, ZIO, ZIOAspect}
 
 import dappermongo.internal.PublisherOps
 
@@ -15,6 +15,12 @@ trait Session {
 
   def transactionalMask[R, E, A](k: TransactionRestorer => ZIO[R, E, A]): ZIO[R, E, A]
 
+  def transactionally: ZIOAspect[Nothing, Any, Nothing, Any, Nothing, Any] =
+    new ZIOAspect[Nothing, Any, Nothing, Any, Nothing, Any] {
+      override def apply[R, E, A](zio: ZIO[R, E, A])(implicit trace: Trace): ZIO[R, E, A] =
+        transactional(zio)
+    }
+
 }
 
 object Session {
@@ -23,37 +29,29 @@ object Session {
   }
 
   object TransactionRestorer {
-    def apply(current: Option[ClientSession]): TransactionRestorer =
+    def apply(current: Option[ClientSession], sessionStorage: SessionStorage[ClientSession]): TransactionRestorer =
       new TransactionRestorer {
         override def apply[R, E, A](effect: => ZIO[R, E, A]): ZIO[R, E, A] =
-          MongoClient.stateRef.locallyWith(_.copy(session = current))(effect)
+          sessionStorage.locally(current)(effect)
       }
   }
 
-  def make(session: ClientSession): ZIO[Scope, Nothing, Session] =
-    for {
-      _ <- MongoClient.stateRef.locallyScopedWith(_.copy(session = Some(session)))
-    } yield apply(session)
+  private[dappermongo] def apply(session: ClientSession, sessionStorage: SessionStorage[ClientSession]): Session =
+    Impl(session, sessionStorage)
 
-  private[dappermongo] def apply(session: ClientSession): Session =
-    Impl(session)
-
-  private case class Impl(session: ClientSession) extends Session {
-    override def transactionScoped: ZIO[Scope, Throwable, Unit] = {
-      def transacting(t: Boolean) = MongoClient.stateRef.update(_.copy(transacting = t))
-
+  private case class Impl(session: ClientSession, sessionStorage: SessionStorage[ClientSession]) extends Session {
+    override def transactionScoped: ZIO[Scope, Throwable, Unit] =
       ZIO.acquireReleaseExit(
-        ZIO.attempt(session.startTransaction()) *> transacting(true)
+        ZIO.attempt(session.startTransaction())
       ) {
-        case (_, Exit.Success(_)) => transacting(false) *> session.commitTransaction().empty.orDie
-        case (_, Exit.Failure(_)) => transacting(false) *> session.abortTransaction().empty.orDie
-      }
-    }
+        case (_, Exit.Success(_)) => session.commitTransaction().empty.orDie
+        case (_, Exit.Failure(_)) => session.abortTransaction().empty.orDie
+      } <* sessionStorage.locallyScoped(Some(session))
 
     override def transactionalMask[R, E, A](k: TransactionRestorer => ZIO[R, E, A]): ZIO[R, E, A] =
       ZIO.scoped[R](for {
-        current <- MongoClient.currentSession.debug("current session")
-        restorer = TransactionRestorer(current)
+        current <- sessionStorage.get
+        restorer = TransactionRestorer(current, sessionStorage)
         result  <- transactionScoped.orDie *> k(restorer)
       } yield result)
   }
