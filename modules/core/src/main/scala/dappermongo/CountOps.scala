@@ -96,7 +96,7 @@ object CountBuilder {
               session
                 .fold(coll.countDocuments(query, countOptions))(coll.countDocuments(_, query, countOptions))
                 .single
-                .map(_.fold(0L)(Long.box(_)))
+                .map(_.fold[Long](0L)(identity(_)))
             })
             .flatten
         }
