@@ -1,6 +1,6 @@
 package dappermongo
 
-import com.mongodb.reactivestreams.client.MongoDatabase
+import com.mongodb.reactivestreams.client.{ClientSession, MongoDatabase}
 import dappermongo.internal.{DocumentEncodedFn, traverseOption}
 import java.util.concurrent.TimeUnit
 import org.bson.BsonDocument
@@ -37,8 +37,8 @@ trait CountBuilder[-R] {
 
 object CountBuilder {
 
-  def apply(database: MongoDatabase): CountBuilder[Collection] =
-    Impl(database, Options())
+  def apply(database: MongoDatabase, sessionStorage: SessionStorage[ClientSession]): CountBuilder[Collection] =
+    Impl(database, Options(), sessionStorage)
 
   private case class Options(
     filter: Option[DocumentEncodedFn] = None,
@@ -50,8 +50,11 @@ object CountBuilder {
     comment: Option[String] = None
   )
 
-  private case class Impl(private val db: MongoDatabase, private val options: Options)
-      extends CountBuilder[Collection] {
+  private case class Impl(
+    private val db: MongoDatabase,
+    private val options: Options,
+    sessionStorage: SessionStorage[ClientSession]
+  ) extends CountBuilder[Collection] {
     override def filter[T: BSONDocumentWriter](filter: T): CountBuilder[Collection] =
       copy(options = options.copy(filter = Some(DocumentEncodedFn(BSON.writeDocument(filter)))))
 
@@ -75,7 +78,7 @@ object CountBuilder {
 
     override def count: ZIO[Collection, Throwable, Long] =
       ZIO.serviceWithZIO { collection =>
-        MongoClient.currentSession.flatMap { session =>
+        sessionStorage.get.flatMap { session =>
           ZIO
             .fromTry(for {
               maybeQuery <- traverseOption(options.filter.map(_.apply()))

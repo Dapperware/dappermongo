@@ -58,7 +58,7 @@ object MongoClient {
   def fromSettings(settings: MongoSettings): ZIO[Scope, Throwable, MongoClient] =
     ZIO
       .fromAutoCloseable(ZIO.attempt(MongoClients.create(settings.toJava, driverInformation)))
-      .map(Impl.apply)
+      .flatMap(client => SessionStorage.fiberRef[ClientSession].map(Impl.apply(client, _)))
 
   private lazy val driverInformation =
     MongoDriverInformation
@@ -68,9 +68,9 @@ object MongoClient {
       .driverPlatform("zio")
       .build()
 
-  private case class Impl(client: JMongoClient) extends MongoClient {
+  private case class Impl(client: JMongoClient, sessionStorage: SessionStorage[ClientSession]) extends MongoClient {
     override def database(name: String): ZIO[Any, Throwable, Database] =
-      ZIO.attempt(client.getDatabase(name)).map(Database.apply)
+      ZIO.attempt(client.getDatabase(name)).map(Database.apply(_, sessionStorage))
 
     override def listDatabaseNames: ZStream[Any, Throwable, String] =
       ZStream.suspend(client.listDatabaseNames().toZIOStream())
@@ -83,7 +83,7 @@ object MongoClient {
             .single
             .someOrFailException
         )
-        .map(Session.apply)
+        .map(Session.apply(_, sessionStorage))
   }
 
   private[dappermongo] val sessionRef =

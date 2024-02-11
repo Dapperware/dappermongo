@@ -34,8 +34,12 @@ trait DistinctBuilder[-R] {
 
 object DistinctBuilder {
 
-  private[dappermongo] def apply(mongoDatabase: MongoDatabase, field: String): DistinctBuilder[Collection] =
-    Impl(mongoDatabase, field)
+  private[dappermongo] def apply(
+    mongoDatabase: MongoDatabase,
+    field: String,
+    sessionStorage: SessionStorage[ClientSession]
+  ): DistinctBuilder[Collection] =
+    Impl(mongoDatabase, field, sessionStorage)
 
   private case class DistinctBuilderOptions(
     filter: Option[() => BSONDocument] = None,
@@ -47,6 +51,7 @@ object DistinctBuilder {
   private case class Impl(
     database: MongoDatabase,
     field: String,
+    sessionStorage: SessionStorage[ClientSession],
     options: DistinctBuilderOptions = DistinctBuilderOptions()
   ) extends DistinctBuilder[Collection] {
     override def filter[T](filter: T)(implicit ev: BSONDocumentWriter[T]): DistinctBuilder[Collection] =
@@ -72,7 +77,7 @@ object DistinctBuilder {
 
     private def to[T: BSONReader, Out](sink: ZSink[Any, Throwable, T, Nothing, Out]): ZIO[Collection, Throwable, Out] =
       ZIO.serviceWithZIO { collection =>
-        MongoClient.currentSession.flatMap { session =>
+        sessionStorage.get.flatMap { session =>
           makePublisher(session, collection, options)
             .toZIOStream()
             .map(doc => BSON.read[T](doc).fold(Left(_), Right(_)))

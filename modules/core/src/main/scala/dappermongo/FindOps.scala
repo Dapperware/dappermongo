@@ -1,6 +1,6 @@
 package dappermongo
 import com.mongodb.client.model.{Collation => JCollation}
-import com.mongodb.reactivestreams.client.{FindPublisher, MongoDatabase}
+import com.mongodb.reactivestreams.client.{ClientSession, FindPublisher, MongoDatabase}
 import dappermongo.internal.{DocumentEncodedFn, traverseOption}
 import org.bson.RawBsonDocument
 import org.bson.conversions.Bson
@@ -50,13 +50,18 @@ trait FindBuilder[-R] {
 
 object FindBuilder {
 
-  def apply(database: MongoDatabase): FindBuilder[Collection] =
-    Impl(database, QueryBuilderOptions())
+  def apply(
+    database: MongoDatabase,
+    options: QueryBuilderOptions,
+    sessionStorage: SessionStorage[ClientSession]
+  ): FindBuilder[Collection] =
+    Impl(database, options, sessionStorage)
 
-  def apply(database: MongoDatabase, options: QueryBuilderOptions): FindBuilder[Collection] =
-    Impl(database, options)
-
-  private case class Impl(database: MongoDatabase, options: QueryBuilderOptions) extends FindBuilder[Collection] {
+  private case class Impl(
+    database: MongoDatabase,
+    options: QueryBuilderOptions,
+    sessionStorage: SessionStorage[ClientSession]
+  ) extends FindBuilder[Collection] {
     override def one[A](implicit ev: BSONDocumentReader[A]): ZIO[Collection, Throwable, Option[A]] =
       ZIO.serviceWithZIO { collection =>
         makePublisher(collection, options, Some(1), 1).flatMap {
@@ -107,7 +112,7 @@ object FindBuilder {
       options: QueryBuilderOptions,
       limit: Option[Int],
       batchSize: Int
-    ): Task[FindPublisher[RawBsonDocument]] = MongoClient.currentSession.flatMap { session =>
+    ): Task[FindPublisher[RawBsonDocument]] = sessionStorage.get.flatMap { session =>
       ZIO.fromTry {
         val underlying = database.getCollection(collection.name, classOf[RawBsonDocument])
 

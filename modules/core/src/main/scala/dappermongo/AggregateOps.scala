@@ -45,11 +45,19 @@ trait AggregateBuilder[-R] {
 }
 
 object AggregateBuilder {
-  def apply(database: MongoDatabase, pipeline: Pipeline): AggregateBuilder[Collection] =
-    Impl(database, pipeline, AggregateBuilderOptions())
+  def apply(
+    database: MongoDatabase,
+    pipeline: Pipeline,
+    sessionStorage: SessionStorage[ClientSession]
+  ): AggregateBuilder[Collection] =
+    Impl(database, pipeline, AggregateBuilderOptions(), sessionStorage)
 
-  private case class Impl(database: MongoDatabase, pipeline: Pipeline, options: AggregateBuilderOptions)
-      extends AggregateBuilder[Collection]
+  private case class Impl(
+    database: MongoDatabase,
+    pipeline: Pipeline,
+    options: AggregateBuilderOptions,
+    sessionStorage: SessionStorage[ClientSession]
+  ) extends AggregateBuilder[Collection]
       with CollectionConversionsVersionSpecific {
 
     override def allowDiskUse(allowDiskUse: Boolean): AggregateBuilder[Collection] =
@@ -83,7 +91,7 @@ object AggregateBuilder {
 
     override def one[T](implicit ev: BSONDocumentReader[T]): ZIO[Collection, Throwable, Option[T]] =
       ZIO.serviceWithZIO { collection =>
-        MongoClient.currentSession.flatMap { session =>
+        sessionStorage.get.flatMap { session =>
           makePublisher(collection, pipeline, options, session).flatMap {
             _.first().single.flatMap {
               case Some(doc) => ZIO.fromTry(ev.readTry(toValue(doc)).map(Some(_)))

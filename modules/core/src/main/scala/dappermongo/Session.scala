@@ -29,29 +29,29 @@ object Session {
   }
 
   object TransactionRestorer {
-    def apply(current: Option[ClientSession]): TransactionRestorer =
+    def apply(current: Option[ClientSession], sessionStorage: SessionStorage[ClientSession]): TransactionRestorer =
       new TransactionRestorer {
         override def apply[R, E, A](effect: => ZIO[R, E, A]): ZIO[R, E, A] =
-          MongoClient.sessionRef.locally(current)(effect)
+          sessionStorage.locally(current)(effect)
       }
   }
 
-  private[dappermongo] def apply(session: ClientSession): Session =
-    Impl(session)
+  private[dappermongo] def apply(session: ClientSession, sessionStorage: SessionStorage[ClientSession]): Session =
+    Impl(session, sessionStorage)
 
-  private case class Impl(session: ClientSession) extends Session {
+  private case class Impl(session: ClientSession, sessionStorage: SessionStorage[ClientSession]) extends Session {
     override def transactionScoped: ZIO[Scope, Throwable, Unit] =
       ZIO.acquireReleaseExit(
         ZIO.attempt(session.startTransaction())
       ) {
         case (_, Exit.Success(_)) => session.commitTransaction().empty.orDie
         case (_, Exit.Failure(_)) => session.abortTransaction().empty.orDie
-      } <* MongoClient.sessionRef.locallyScoped(Some(session))
+      } <* sessionStorage.locallyScoped(Some(session))
 
     override def transactionalMask[R, E, A](k: TransactionRestorer => ZIO[R, E, A]): ZIO[R, E, A] =
       ZIO.scoped[R](for {
-        current <- MongoClient.sessionRef.get
-        restorer = TransactionRestorer(current)
+        current <- sessionStorage.get
+        restorer = TransactionRestorer(current, sessionStorage)
         result  <- transactionScoped.orDie *> k(restorer)
       } yield result)
   }

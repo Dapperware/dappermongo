@@ -1,6 +1,6 @@
 package dappermongo
 
-import com.mongodb.reactivestreams.client.MongoDatabase
+import com.mongodb.reactivestreams.client.{ClientSession, MongoDatabase}
 import dappermongo.results.{Deleted, Result}
 import org.bson.{BsonDocument, RawBsonDocument}
 import reactivemongo.api.bson.BSONDocumentWriter
@@ -23,14 +23,15 @@ trait DeleteBuilder[-R] {
 
 object DeleteBuilder {
 
-  def apply(database: MongoDatabase): DeleteBuilder[Collection] =
-    new Impl(database)
+  def apply(database: MongoDatabase, sessionStorage: SessionStorage[ClientSession]): DeleteBuilder[Collection] =
+    new Impl(database, sessionStorage)
 
-  private class Impl(database: MongoDatabase) extends DeleteBuilder[Collection] {
+  private class Impl(database: MongoDatabase, sessionStorage: SessionStorage[ClientSession])
+      extends DeleteBuilder[Collection] {
 
     override def many[U](u: U)(implicit ev: BSONDocumentWriter[U]): ZIO[Collection, Throwable, Result[Deleted]] =
       ZIO.serviceWithZIO { collection =>
-        MongoClient.currentSession.flatMap { session =>
+        sessionStorage.get.flatMap { session =>
           val coll                = database.getCollection(collection.name, classOf[RawBsonDocument])
           val query: BsonDocument = ev.writeTry(u).get
 
@@ -47,7 +48,7 @@ object DeleteBuilder {
 
     override def one[U](u: U)(implicit ev: BSONDocumentWriter[U]): ZIO[Collection, Throwable, Result[Deleted]] =
       ZIO.serviceWithZIO { collection =>
-        MongoClient.currentSession.flatMap { session =>
+        sessionStorage.get.flatMap { session =>
           val coll                = database.getCollection(collection.name, classOf[RawBsonDocument])
           val query: BsonDocument = ev.writeTry(u).get
 

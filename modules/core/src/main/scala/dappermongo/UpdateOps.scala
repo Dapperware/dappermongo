@@ -1,6 +1,6 @@
 package dappermongo
 
-import com.mongodb.reactivestreams.client.MongoDatabase
+import com.mongodb.reactivestreams.client.{ClientSession, MongoDatabase}
 import dappermongo.internal.CollectionConversionsVersionSpecific
 import dappermongo.results.{Result, Updated}
 import org.bson.BsonDocument
@@ -25,16 +25,17 @@ trait UpdateBuilder[-R] {
 
 object UpdateBuilder extends CollectionConversionsVersionSpecific {
 
-  def apply(database: MongoDatabase): UpdateBuilder[Collection] =
-    new Impl(database)
-  private class Impl(database: MongoDatabase) extends UpdateBuilder[Collection] {
+  def apply(database: MongoDatabase, sessionStorage: SessionStorage[ClientSession]): UpdateBuilder[Collection] =
+    new Impl(database, sessionStorage)
+  private class Impl(database: MongoDatabase, sessionStorage: SessionStorage[ClientSession])
+      extends UpdateBuilder[Collection] {
 
     def many[Q, U](q: Q, updates: Chunk[U])(implicit
       evQ: BSONDocumentWriter[Q],
       evU: BSONDocumentWriter[U]
     ): ZIO[Collection, Throwable, Result[Updated]] =
       ZIO.serviceWithZIO { collection =>
-        MongoClient.currentSession.flatMap { session =>
+        sessionStorage.get.flatMap { session =>
           val coll = database
             .getCollection(collection.name, classOf[BsonDocument])
 
@@ -58,7 +59,7 @@ object UpdateBuilder extends CollectionConversionsVersionSpecific {
       u: U
     )(implicit evQ: BSONDocumentWriter[Q], evU: BSONDocumentWriter[U]): ZIO[Collection, Throwable, Result[Updated]] =
       ZIO.serviceWithZIO { collection =>
-        MongoClient.currentSession.flatMap { session =>
+        sessionStorage.get.flatMap { session =>
           val coll = database
             .getCollection(collection.name, classOf[BsonDocument])
 

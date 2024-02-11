@@ -1,6 +1,6 @@
 package dappermongo
 
-import com.mongodb.reactivestreams.client.MongoDatabase
+import com.mongodb.reactivestreams.client.{ClientSession, MongoDatabase}
 import dappermongo.internal.CollectionConversionsVersionSpecific
 import dappermongo.results.{InsertedMany, InsertedOne, Result}
 import org.bson.conversions.Bson
@@ -24,15 +24,15 @@ trait InsertBuilder[-R] {
 
 object InsertBuilder {
 
-  def apply(database: MongoDatabase): InsertBuilder[Collection] =
-    new Impl(database)
+  def apply(database: MongoDatabase, sessionStorage: SessionStorage[ClientSession]): InsertBuilder[Collection] =
+    new Impl(database, sessionStorage)
 
-  private class Impl(database: MongoDatabase)
+  private class Impl(database: MongoDatabase, sessionStorage: SessionStorage[ClientSession])
       extends InsertBuilder[Collection]
       with CollectionConversionsVersionSpecific {
     override def one[U](u: U)(implicit ev: BSONDocumentWriter[U]): ZIO[Collection, Throwable, Result[InsertedOne]] =
       ZIO.serviceWithZIO { collection =>
-        MongoClient.currentSession.flatMap { session =>
+        sessionStorage.get.flatMap { session =>
           val coll = database
             .getCollection(collection.name, classOf[Bson])
 
@@ -53,7 +53,7 @@ object InsertBuilder {
       us: List[U]
     )(implicit ev: BSONDocumentWriter[U]): ZIO[Collection, Throwable, Result[InsertedMany]] =
       ZIO.serviceWithZIO { collection =>
-        MongoClient.currentSession.flatMap { session =>
+        sessionStorage.get.flatMap { session =>
           val coll = database
             .getCollection(collection.name, classOf[Bson])
 
