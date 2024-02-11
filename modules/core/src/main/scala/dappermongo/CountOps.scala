@@ -1,11 +1,11 @@
 package dappermongo
 
 import com.mongodb.reactivestreams.client.MongoDatabase
+import dappermongo.internal.{DocumentEncodedFn, traverseOption}
 import java.util.concurrent.TimeUnit
 import org.bson.BsonDocument
-import org.bson.conversions.Bson
 import reactivemongo.api.bson.msb._
-import reactivemongo.api.bson.{BSON, BSONDocument, BSONDocumentWriter}
+import reactivemongo.api.bson.{BSON, BSONDocumentWriter}
 import zio.{Duration, ZIO}
 
 import dappermongo.internal.PublisherOps
@@ -41,11 +41,11 @@ object CountBuilder {
     Impl(database, Options())
 
   private case class Options(
-    filter: Option[() => BSONDocument] = None,
+    filter: Option[DocumentEncodedFn] = None,
     limit: Option[Int] = None,
     maxTime: Option[Duration] = None,
     skip: Option[Int] = None,
-    hint: Option[() => BSONDocument] = None,
+    hint: Option[DocumentEncodedFn] = None,
     collation: Option[Collation] = None,
     comment: Option[String] = None
   )
@@ -53,7 +53,7 @@ object CountBuilder {
   private case class Impl(private val db: MongoDatabase, private val options: Options)
       extends CountBuilder[Collection] {
     override def filter[T: BSONDocumentWriter](filter: T): CountBuilder[Collection] =
-      copy(options = options.copy(filter = Some(() => BSON.writeDocument(filter).get)))
+      copy(options = options.copy(filter = Some(DocumentEncodedFn(BSON.writeDocument(filter)))))
 
     override def limit(limit: Int): CountBuilder[Collection] =
       copy(options = options.copy(limit = Some(limit)))
@@ -65,7 +65,7 @@ object CountBuilder {
       copy(options = options.copy(skip = Some(skip)))
 
     override def hint[T: BSONDocumentWriter](hint: T): CountBuilder[Collection] =
-      copy(options = options.copy(hint = Some(() => BSON.writeDocument(hint).get)))
+      copy(options = options.copy(hint = Some(DocumentEncodedFn(BSON.writeDocument(hint)))))
 
     override def collation(collation: Collation): CountBuilder[Collection] =
       copy(options = options.copy(collation = Some(collation)))
@@ -76,19 +76,26 @@ object CountBuilder {
     override def count: ZIO[Collection, Throwable, Long] =
       ZIO.serviceWithZIO { collection =>
         MongoClient.currentSession.flatMap { session =>
-          val coll         = db.getCollection(collection.name)
-          val query        = options.filter.map[Bson](_.apply()).getOrElse(new BsonDocument())
-          val countOptions = new com.mongodb.client.model.CountOptions()
-          options.limit.foreach(countOptions.limit)
-          options.maxTime.foreach(d => countOptions.maxTime(d.toMillis, TimeUnit.MILLISECONDS))
-          options.skip.foreach(countOptions.skip)
-          options.hint.map(_.apply()).foreach(hint => countOptions.hint(hint.asDocument()))
-          options.collation.foreach(collation => countOptions.collation(collation.asJava))
-          options.comment.foreach(countOptions.comment)
-          session
-            .fold(coll.countDocuments(query, countOptions))(coll.countDocuments(_, query, countOptions))
-            .single
-            .map(_.fold(0L)(Long.box(_))) // TODO should this throw if no value is returned?
+          ZIO
+            .fromTry(for {
+              maybeQuery <- traverseOption(options.filter.map(_.apply()))
+              hint       <- traverseOption(options.hint.map(_.apply()))
+            } yield {
+              val coll         = db.getCollection(collection.name)
+              val countOptions = new com.mongodb.client.model.CountOptions()
+              val query        = maybeQuery.fold(new BsonDocument())(fromDocument)
+              options.limit.foreach(countOptions.limit)
+              options.maxTime.foreach(d => countOptions.maxTime(d.toMillis, TimeUnit.MILLISECONDS))
+              options.skip.foreach(countOptions.skip)
+              hint.foreach(hint => countOptions.hint(fromDocument(hint)))
+              options.collation.foreach(collation => countOptions.collation(collation.asJava))
+              options.comment.foreach(countOptions.comment)
+              session
+                .fold(coll.countDocuments(query, countOptions))(coll.countDocuments(_, query, countOptions))
+                .single
+                .map(_.fold(0L)(Long.box(_)))
+            })
+            .flatten
         }
       }
   }

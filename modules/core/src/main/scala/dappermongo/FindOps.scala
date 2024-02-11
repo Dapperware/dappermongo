@@ -1,11 +1,13 @@
 package dappermongo
-
-import com.mongodb.reactivestreams.client.MongoDatabase
+import com.mongodb.client.model.{Collation => JCollation}
+import com.mongodb.reactivestreams.client.{FindPublisher, MongoDatabase}
+import dappermongo.internal.{DocumentEncodedFn, traverseOption}
 import org.bson.RawBsonDocument
+import org.bson.conversions.Bson
 import reactivemongo.api.bson.msb._
 import reactivemongo.api.bson.{BSONDocumentReader, BSONDocumentWriter}
-import zio.ZIO
 import zio.stream.ZStream
+import zio.{Task, ZIO}
 
 import dappermongo.internal.PublisherOps
 import zio.interop.reactivestreams.publisherToStream
@@ -57,13 +59,12 @@ object FindBuilder {
   private case class Impl(database: MongoDatabase, options: QueryBuilderOptions) extends FindBuilder[Collection] {
     override def one[A](implicit ev: BSONDocumentReader[A]): ZIO[Collection, Throwable, Option[A]] =
       ZIO.serviceWithZIO { collection =>
-        makePublisher(collection, options, Some(1), 1)
-          .first()
-          .single
-          .flatMap {
+        makePublisher(collection, options, Some(1), 1).flatMap {
+          _.first().single.flatMap {
             case Some(doc) => ZIO.fromTry(ev.readTry(toValue(doc)).map(Some(_)))
             case None      => ZIO.none
           }
+        }
       }
 
     override def stream[A](limit: Option[Int], chunkSize: Int)(implicit
@@ -71,7 +72,7 @@ object FindBuilder {
     ): ZStream[Collection, Throwable, A] =
       (for {
         collection <- ZStream.service[Collection]
-        doc        <- makePublisher(collection, options, limit, chunkSize).toZIOStream(chunkSize)
+        doc        <- ZStream.unwrap(makePublisher(collection, options, limit, chunkSize).map(_.toZIOStream(chunkSize)))
       } yield ev.readTry(doc).toEither).absolve
 
     override def explain[A](implicit ev: BSONDocumentReader[A]): ZIO[Collection, Throwable, Option[A]] =
@@ -93,43 +94,49 @@ object FindBuilder {
       copy(options = options.copy(noCursorTimeout = Some(noCursorTimeout)))
 
     override def projection[P](projection: P)(implicit ev: BSONDocumentWriter[P]): FindBuilder[Collection] =
-      copy(options = options.copy(projection = Some(() => ev.writeTry(projection).get)))
+      copy(options = options.copy(projection = Some(DocumentEncodedFn(ev.writeTry(projection)))))
 
     override def skip(skip: Int): FindBuilder[Collection] =
       copy(options = options.copy(skip = Some(skip)))
 
     override def sort[S](sort: S)(implicit ev: BSONDocumentWriter[S]): FindBuilder[Collection] =
-      copy(options = options.copy(sort = Some(() => ev.writeTry(sort).get)))
+      copy(options = options.copy(sort = Some(DocumentEncodedFn(ev.writeTry(sort)))))
 
     private def makePublisher(
       collection: Collection,
       options: QueryBuilderOptions,
       limit: Option[Int],
       batchSize: Int
-    ) = {
-      val underlying = database.getCollection(collection.name, classOf[RawBsonDocument])
-      val sort       = options.sort.map(_.apply()).map(fromDocument)
-      val projection = options.projection.map(_.apply()).map(fromDocument)
-      val filter     = options.filter.map(_.apply()).map(fromDocument)
-      val builder    = filter.fold(underlying.find())(underlying.find(_))
+    ): Task[FindPublisher[RawBsonDocument]] = MongoClient.currentSession.flatMap { session =>
+      ZIO.fromTry {
+        val underlying = database.getCollection(collection.name, classOf[RawBsonDocument])
 
-      builder
-        .sort(sort.orNull)
-        .projection(projection.orNull)
-        .filter(filter.orNull)
-        .collation(options.collation.map(_.asJava).orNull)
-        .comment(options.comment.orNull)
-        .hintString(options.hint.orNull)
-        .batchSize(batchSize)
-        .allowDiskUse(options.allowDiskUse.map(java.lang.Boolean.valueOf).orNull)
+        for {
+          sort       <- traverseOption(options.sort.map(_.apply()))
+          projection <- traverseOption(options.projection.map(_.apply()))
+          filter     <- traverseOption(options.filter.map(_.apply()))
+          builder     = session.fold(underlying.find())(underlying.find)
+        } yield {
+          builder
+            .sort(sort.fold[Bson](null)(fromDocument))
+            .projection(projection.fold[Bson](null)(fromDocument))
+            .filter(filter.fold[Bson](null)(fromDocument))
+            .collation(options.collation.fold[JCollation](null)(_.asJava))
+            .comment(options.comment.orNull)
+            .hintString(options.hint.orNull)
+            .batchSize(batchSize)
+            .allowDiskUse(options.allowDiskUse.map(Boolean.box).orNull)
 
-      options.skip.foreach(builder.skip)
-      limit.foreach(builder.limit)
-      options.explain.foreach(if (_) builder.explain())
-      options.noCursorTimeout.foreach(builder.noCursorTimeout)
+          options.skip.foreach(builder.skip)
+          limit.foreach(builder.limit)
+          options.explain.foreach(if (_) builder.explain())
+          options.noCursorTimeout.foreach(builder.noCursorTimeout)
 
-      builder
+          builder
+        }
+      }
     }
+
   }
 
 }

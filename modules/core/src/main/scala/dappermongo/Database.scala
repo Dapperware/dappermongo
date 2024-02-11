@@ -2,7 +2,8 @@ package dappermongo
 
 import com.mongodb.reactivestreams.client.MongoDatabase
 import dappermongo.aggregate.Pipeline
-import reactivemongo.api.bson.{BSONDocument, BSONDocumentWriter}
+import dappermongo.internal.DocumentEncodedFn
+import reactivemongo.api.bson.BSONDocumentWriter
 import zio.{ZIO, ZLayer}
 
 trait Database
@@ -37,7 +38,7 @@ object Database {
     override def insert: InsertBuilder[Collection] = InsertBuilder(database)
     override def findAll: FindBuilder[Collection]  = FindBuilder(database)
     override def find[Q](q: Q)(implicit ev: BSONDocumentWriter[Q]): FindBuilder[Collection] =
-      FindBuilder(database, QueryBuilderOptions(filter = Some(() => ev.writeTry(q).get)))
+      FindBuilder(database, QueryBuilderOptions(filter = Some(DocumentEncodedFn(ev.writeTry(q)))))
 
     override def find[Q, P](query: Q, projection: P)(implicit
       evQ: BSONDocumentWriter[Q],
@@ -46,8 +47,8 @@ object Database {
       FindBuilder(
         database,
         QueryBuilderOptions(
-          filter = Some(() => evQ.writeTry(query).get),
-          projection = Some(() => evP.writeTry(projection).get)
+          filter = Some(DocumentEncodedFn(evQ.writeTry(query))),
+          projection = Some(DocumentEncodedFn(evP.writeTry(projection)))
         )
       )
 
@@ -65,9 +66,9 @@ object Database {
 }
 
 private case class QueryBuilderOptions(
-  filter: Option[() => BSONDocument] = None,
-  projection: Option[() => BSONDocument] = None,
-  sort: Option[() => BSONDocument] = None,
+  filter: Option[DocumentEncodedFn] = None,
+  projection: Option[DocumentEncodedFn] = None,
+  sort: Option[DocumentEncodedFn] = None,
   skip: Option[Int] = None,
   allowDiskUse: Option[Boolean] = None,
   collation: Option[Collation] = None,

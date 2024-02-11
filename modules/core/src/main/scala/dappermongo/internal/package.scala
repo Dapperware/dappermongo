@@ -1,5 +1,7 @@
 package dappermongo
 
+import scala.util.{Success, Try}
+
 import org.reactivestreams.Publisher
 import zio.interop.reactivestreams.internal.{EmptySubscriber, SingleSubscriber}
 import zio.{Task, ZIO}
@@ -16,4 +18,10 @@ package object internal {
       subscriber.await.onInterrupt(subscriber.interrupt).unit
     })
   }
+
+  private[dappermongo] def traverseOption[A](option: Option[Try[A]]): Try[Option[A]] =
+    option match {
+      case Some(value) => value.map(Some(_))
+      case None        => Success(None)
+    }
 }

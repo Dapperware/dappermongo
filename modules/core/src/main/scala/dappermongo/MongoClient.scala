@@ -83,15 +83,13 @@ object MongoClient {
             .single
             .someOrFailException
         )
-        .flatMap(Session.make)
+        .map(Session.apply)
   }
 
-  private[dappermongo] val stateRef =
-    Unsafe.unsafe(implicit u => FiberRef.unsafe.make[State](State(None, transacting = false)))
+  private[dappermongo] val sessionRef =
+    Unsafe.unsafe(implicit u => FiberRef.unsafe.make[Option[ClientSession]](None))
 
-  private[dappermongo] val currentSession: ZIO[Any, Nothing, Option[ClientSession]] =
-    stateRef.get.map(state => state.session.filter(_ => state.transacting))
-
-  private[dappermongo] case class State(session: Option[ClientSession], transacting: Boolean)
+  private[dappermongo] val currentSession =
+    sessionRef.get
 
 }
