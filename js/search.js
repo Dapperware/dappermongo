@@ -29,17 +29,17 @@ function prepareIdxAndDocMap() {
   const docs = [  
     {
       "title": "Getting Started",
-      "url": "/docs/getting-started/",
+      "url": "/dappermongo/docs/getting-started/",
       "content": "Getting started You’ll need to first make sure that you have access to a mongo instance or cluster. There are a few ways to do this: Install mongo on your local machine or get a hosted version of mongo through Atlas. You can find more information on that here. Alternatively, if you want to develop locally you can also use docker to run a mongo instance. See the examples project for reference. Finally, you can use the mongodb-atlas CLI tool to create a cluster either locally or on atlas. Installation libraryDependencies += \"com.github.dapperware\" %% \"dappermongo-core\" % \"0.0.1\" Setting up the client After adding the above dependency you can start a MongoClient import dappermongo._ // ZLayer MongoClient.local // Uses the default local settings MongoClient.configured // By default, it looks for a config key of \"mongodb\" MongoClient.configured(NonEmptyChunk(\"mongo\", \"database\")) // You can also specify the config key MongoClient.live // Accepts `MongoSettings` as an environmental parameter // ZIO MongoClient.scoped // Returns a ZIO that can be configured MongoClient.fromSettings(settings) // Accepts settings passed as an argument Example import dappermongo._ import zio._ object Example1 extends ZIOAppDefault { val program = for { db &lt;- MongoClient.database(\"test\") _ &lt;- db.diagnostics.ping } yield () val run = program.provide( MongoClient.local ) }"
     } ,    
     {
       "title": "Home",
-      "url": "/",
+      "url": "/dappermongo/",
       "content": ""
     } ,    
     {
       "title": "Intro",
-      "url": "/docs/",
+      "url": "/dappermongo/docs/",
       "content": "Introduction Welcome to DapperMongo, a ZIO-friendly MongoDB client. This project is designed to provide an easy-to-use, efficient, and reliable interface for interacting with MongoDB databases in Scala. Why DapperMongo? You might be wondering, why another wrapper library for MongoDB in Scala? The answer is simple: DapperMongo takes the best from each library and combines them into a single “dapper” library. Here are some of the reasons why you should consider using DapperMongo: Ease of Use: DapperMongo is designed with simplicity in mind. It provides a straightforward and intuitive API that makes it easy to perform common database operations. Efficiency: By leveraging the power of ZIO and other high-performance libraries, DapperMongo ensures that your database operations are as efficient as possible. Reliability: DapperMongo is built on top of reliable libraries and uses ZIO’s powerful error handling capabilities to ensure that your database operations are safe and reliable. Best of All Worlds: DapperMongo takes the best features from various MongoDB libraries and combines them into a single, easy-to-use package. This means you get the benefits of all these libraries without having to deal with their individual quirks and complexities. So, if you’re looking for a MongoDB library that’s easy to use, efficient, reliable, and takes the best from each library, look no further than DapperMongo. We hope you’ll find it to be a valuable tool in your Scala development toolkit."
     } ,        
   ];
