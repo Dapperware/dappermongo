@@ -1,6 +1,7 @@
 ThisBuild / scalaVersion               := "2.13.12"
 ThisBuild / organization               := "com.github.dapperware"
 ThisBuild / organizationName           := "Dapperware"
+ThisBuild / organizationHomepage       := Some(url("https://dappermongo.github.io"))
 ThisBuild / name                       := "dappermongo"
 ThisBuild / semanticdbEnabled          := true
 ThisBuild / semanticdbVersion          := scalafixSemanticdb.revision
@@ -42,14 +43,15 @@ lazy val core = (project in file("modules/core"))
   .settings(
     name := "dappermongo-core",
     libraryDependencies ++= Seq(
-      "dev.zio"           %% "zio"                            % "2.0.21",
-      "dev.zio"           %% "zio-streams"                    % "2.0.21",
-      "dev.zio"           %% "zio-interop-reactivestreams"    % "2.0.2",
-      "org.mongodb"        % "mongodb-driver-reactivestreams" % "4.11.0",
-      "org.reactivemongo" %% "reactivemongo-bson-msb-compat"  % "1.1.0-RC12",
-      "dev.zio"           %% "zio-test"                       % "2.0.21"  % Test,
-      "dev.zio"           %% "zio-test-sbt"                   % "2.0.21"  % Test,
-      "com.dimafeng"      %% "testcontainers-scala-mongodb"   % "0.40.12" % Test
+      "dev.zio"                %% "zio"                            % "2.0.21",
+      "dev.zio"                %% "zio-streams"                    % "2.0.21",
+      "dev.zio"                %% "zio-interop-reactivestreams"    % "2.0.2",
+      "org.mongodb"             % "mongodb-driver-reactivestreams" % "4.11.0",
+      "org.reactivemongo"      %% "reactivemongo-bson-msb-compat"  % "1.1.0-RC12",
+      "org.scala-lang.modules" %% "scala-collection-compat"        % "2.11.0",
+      "dev.zio"                %% "zio-test"                       % "2.0.21"  % Test,
+      "dev.zio"                %% "zio-test-sbt"                   % "2.0.21"  % Test,
+      "com.dimafeng"           %% "testcontainers-scala-mongodb"   % "0.40.12" % Test
     ),
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
     Test / fork   := true,
@@ -65,24 +67,26 @@ lazy val core = (project in file("modules/core"))
     }
   )
 
-//lazy val docs = project
-//  .in(file("zio-mongo-docs"))
-//  .settings(
-//    scalacOptions --= List("-Yno-imports", "-Xfatal-warnings"),
-//    publish / skip := true
-//  )
-//  .settings(
-//    moduleName                                 := "zio-mongo-docs",
-//    projectName                                := (ThisBuild / name).value,
-//    mainModuleName                             := (core / moduleName).value,
-//    projectStage                               := ProjectStage.Development,
-//    ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(core)
-//  )
-//  .dependsOn(core)
-//  .enablePlugins(WebsitePlugin)
+lazy val microsite = project
+  .enablePlugins(MicrositesPlugin, MdocPlugin)
+  .settings(
+    publish / skip            := true,
+    name                      := "dappermongo-microsite",
+    micrositeName             := "DapperMongo",
+    micrositeDescription      := "A ZIO-friendly MongoDB client",
+    micrositeFooterText       := Some("DapperMongo is maintained by the Dapperware team."),
+    micrositeDocumentationUrl := "docs"
+  )
+
+lazy val examples = project
+  .dependsOn(core)
+  .settings(
+    publish / skip := true,
+    scalacOptions  := scalacOptionsVersion(scalaVersion.value)
+  )
 
 lazy val root = (project in file("."))
-  .aggregate(core)
+  .aggregate(core, microsite, examples)
   .settings(
     publish / skip := true
   )

@@ -16,22 +16,30 @@ trait MongoClient {
 
   def startSession: ZIO[Scope, Throwable, Session]
 
+  def dropDatabase(name: String): ZIO[Any, Throwable, Unit]
+
 }
 
 object MongoClient {
 
   /**
+   * Constructs a `MongoClient` from the local `MongoSettings`.
+   */
+  def local(implicit trace: Trace): ZLayer[Any, Throwable, MongoClient] =
+    ZLayer.scoped(fromSettings(MongoSettings.local))
+
+  /**
    * Constructs a `MongoClient` by loading the settings from the built-in
    * `ConfigProvider`, using the default path of `mongodb`.
    */
-  def configured: ZLayer[Any, Throwable, MongoClient] =
+  def configured(implicit trace: Trace): ZLayer[Any, Throwable, MongoClient] =
     configured(NonEmptyChunk.single("mongodb"))
 
   /**
    * Constructs a `MongoClient` by loading the settings from the built-in
    * `ConfigProvider`, using the specified path.
    */
-  def configured(at: NonEmptyChunk[String]): ZLayer[Any, Throwable, MongoClient] =
+  def configured(at: NonEmptyChunk[String])(implicit trace: Trace): ZLayer[Any, Throwable, MongoClient] =
     ZLayer.scoped(for {
       config <- ZIO.config(MongoSettings.config.nested(at.head, at.tail: _*))
       mongo  <- fromSettings(config)
@@ -40,14 +48,14 @@ object MongoClient {
   /**
    * Constructs a `MongoClient` from the environmental `MongoSettings`.
    */
-  val live: ZLayer[MongoSettings, Throwable, MongoClient] =
+  def live(implicit trace: Trace): ZLayer[MongoSettings, Throwable, MongoClient] =
     ZLayer.scoped(scoped)
 
   /**
    * Constructs a `MongoClient` from the environmental `MongoSettings` and
    * provides it as a Scoped effect
    */
-  def scoped: ZIO[Scope with MongoSettings, Throwable, MongoClient] = for {
+  def scoped(implicit trace: Trace): ZIO[Scope with MongoSettings, Throwable, MongoClient] = for {
     settings <- ZIO.service[MongoSettings]
     mongo    <- fromSettings(settings)
   } yield mongo
@@ -55,7 +63,7 @@ object MongoClient {
   /**
    * Constructs a `MongoClient` from the specified `MongoSettings`.
    */
-  def fromSettings(settings: MongoSettings): ZIO[Scope, Throwable, MongoClient] =
+  def fromSettings(settings: MongoSettings)(implicit trace: Trace): ZIO[Scope, Throwable, MongoClient] =
     ZIO
       .fromAutoCloseable(ZIO.attempt(MongoClients.create(settings.toJava, driverInformation)))
       .flatMap(client => SessionStorage.fiberRef[ClientSession].map(Impl.apply(client, _)))
@@ -73,7 +81,7 @@ object MongoClient {
       ZIO.attempt(client.getDatabase(name)).map(Database.apply(_, sessionStorage))
 
     override def listDatabaseNames: ZStream[Any, Throwable, String] =
-      ZStream.suspend(client.listDatabaseNames().toZIOStream())
+      ZStream.unwrap(sessionStorage.get.map(_.fold(client.listDatabaseNames())(client.listDatabaseNames).toZIOStream()))
 
     override def startSession: ZIO[Scope, Throwable, Session] =
       ZIO
@@ -84,12 +92,8 @@ object MongoClient {
             .someOrFailException
         )
         .map(Session.apply(_, sessionStorage))
+
+    override def dropDatabase(name: String): ZIO[Any, Throwable, Unit] =
+      ZIO.suspend(client.getDatabase(name).drop().empty)
   }
-
-  private[dappermongo] val sessionRef =
-    Unsafe.unsafe(implicit u => FiberRef.unsafe.make[Option[ClientSession]](None))
-
-  private[dappermongo] val currentSession =
-    sessionRef.get
-
 }

@@ -1,8 +1,10 @@
 package dappermongo
 
+import scala.jdk.CollectionConverters._
+
 import com.mongodb.reactivestreams.client.{ClientSession, MongoDatabase}
-import dappermongo.internal.CollectionConversionsVersionSpecific
 import dappermongo.results.{InsertedMany, InsertedOne, Result}
+import org.bson.BsonDocument
 import org.bson.conversions.Bson
 import reactivemongo.api.bson.BSONDocumentWriter
 import reactivemongo.api.bson.msb._
@@ -28,8 +30,7 @@ object InsertBuilder {
     new Impl(database, sessionStorage)
 
   private class Impl(database: MongoDatabase, sessionStorage: SessionStorage[ClientSession])
-      extends InsertBuilder[Collection]
-      with CollectionConversionsVersionSpecific {
+      extends InsertBuilder[Collection] {
     override def one[U](u: U)(implicit ev: BSONDocumentWriter[U]): ZIO[Collection, Throwable, Result[InsertedOne]] =
       ZIO.serviceWithZIO { collection =>
         sessionStorage.get.flatMap { session =>
@@ -55,9 +56,9 @@ object InsertBuilder {
       ZIO.serviceWithZIO { collection =>
         sessionStorage.get.flatMap { session =>
           val coll = database
-            .getCollection(collection.name, classOf[Bson])
+            .getCollection(collection.name, classOf[BsonDocument])
 
-          val values: java.util.List[Bson] = listAsJava(us.map(u => fromDocument(ev.writeTry(u).get)))
+          val values: java.util.List[BsonDocument] = us.map(u => fromDocument(ev.writeTry(u).get)).asJava
 
           session
             .fold(coll.insertMany(values))(coll.insertMany(_, values))
@@ -66,7 +67,7 @@ object InsertBuilder {
               _.fold[Result[InsertedMany]](Result.Unacknowledged)(result =>
                 Result.Acknowledged(
                   InsertedMany(
-                    mapAsScala(result.getInsertedIds).view.map(kv => (kv._1.intValue(), toValue(kv._2))).toMap
+                    result.getInsertedIds.asScala.view.map(kv => (kv._1.intValue(), toValue(kv._2))).toMap
                   )
                 )
               )

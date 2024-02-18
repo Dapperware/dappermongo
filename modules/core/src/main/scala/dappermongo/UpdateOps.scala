@@ -1,7 +1,8 @@
 package dappermongo
 
+import scala.jdk.CollectionConverters._
+
 import com.mongodb.reactivestreams.client.{ClientSession, MongoDatabase}
-import dappermongo.internal.CollectionConversionsVersionSpecific
 import dappermongo.results.{Result, Updated}
 import org.bson.BsonDocument
 import org.bson.conversions.Bson
@@ -23,7 +24,7 @@ trait UpdateBuilder[-R] {
   def many[Q: BSONDocumentWriter, U: BSONDocumentWriter](q: Q, updates: Chunk[U]): ZIO[R, Throwable, Result[Updated]]
 }
 
-object UpdateBuilder extends CollectionConversionsVersionSpecific {
+object UpdateBuilder {
 
   def apply(database: MongoDatabase, sessionStorage: SessionStorage[ClientSession]): UpdateBuilder[Collection] =
     new Impl(database, sessionStorage)
@@ -43,7 +44,7 @@ object UpdateBuilder extends CollectionConversionsVersionSpecific {
           val ups         = updates.map(u => fromDocument(evU.writeTry(u).get))
 
           session
-            .fold(coll.updateMany(query, seqAsJava(ups)))(coll.updateMany(_, query, seqAsJava(ups)))
+            .fold(coll.updateMany(query, ups.asJava))(coll.updateMany(_, query, ups.asJava))
             .single
             .map(
               _.fold[Result[Updated]](Result.Unacknowledged)(result =>

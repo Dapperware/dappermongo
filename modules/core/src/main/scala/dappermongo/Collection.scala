@@ -1,7 +1,7 @@
 package dappermongo
 
-import zio.ZIO
 import zio.stream.ZStream
+import zio.{Trace, ZIO, ZLayer}
 
 trait Collection { self =>
   def name: String
@@ -29,6 +29,14 @@ trait Collection { self =>
 }
 
 object Collection {
+
+  def named(
+    name: String,
+    readPreference: Option[ReadPreference] = None,
+    writeConcern: Option[WriteConcern] = None,
+    readConcern: Option[ReadConcern] = None
+  )(implicit trace: Trace): ZLayer[Any, Nothing, Collection] =
+    ZLayer.succeed(Impl(name, readPreference, writeConcern, readConcern))
 
   def apply(
     name: String,

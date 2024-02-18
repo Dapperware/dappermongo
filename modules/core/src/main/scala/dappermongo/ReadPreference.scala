@@ -1,9 +1,10 @@
 package dappermongo
 
+import scala.jdk.CollectionConverters._
+
 import com.mongodb
 import com.mongodb.{ReadPreferenceHedgeOptions, TaggableReadPreference}
 import dappermongo.ReadPreference.Taggable.applySettings
-import dappermongo.internal.CollectionConversionsVersionSpecific
 import java.util.concurrent.TimeUnit
 import zio.{Chunk, Config, Duration}
 
@@ -15,14 +16,14 @@ sealed abstract class ReadPreference(private[dappermongo] val wrapped: com.mongo
 
 }
 
-object ReadPreference extends CollectionConversionsVersionSpecific {
+object ReadPreference {
 
   private[dappermongo] def apply(inner: com.mongodb.ReadPreference): ReadPreference = inner match {
     case rp: TaggableReadPreference =>
       val maxStaleness = Option(rp.getMaxStaleness(TimeUnit.MILLISECONDS)).map(Duration.fromMillis(_))
       val tags = Option(rp.getTagSetList).map(ts =>
         Chunk.fromIterable(
-          listAsScala(ts).map(ts => TagSet(iterableAsScala(ts).map(t => t.getName -> t.getValue).toMap))
+          ts.asScala.map(ts => TagSet(ts.asScala.map(t => t.getName -> t.getValue).toMap))
         )
       )
       val hedgeOptions = Option(rp.getHedgeOptions).map(ho => HedgeOptions(ho.isEnabled))
@@ -60,7 +61,7 @@ object ReadPreference extends CollectionConversionsVersionSpecific {
       val rp = wrapped
         .withMaxStalenessMS(maxStaleness.map(ms => java.lang.Long.valueOf(ms.toMillis)).orNull, TimeUnit.MILLISECONDS)
 
-      hedgeOptions.foldLeft(tags.fold(rp)(ts => rp.withTagSetList(seqAsJava(ts.map(_.asJava)))))((rp, ho) =>
+      hedgeOptions.foldLeft(tags.fold(rp)(ts => rp.withTagSetList(ts.map(_.asJava).asJava)))((rp, ho) =>
         rp.withHedgeOptions(ReadPreferenceHedgeOptions.builder().enabled(ho.enabled).build())
       )
     }
@@ -130,9 +131,9 @@ case class TagSet(tagSet: Map[String, String]) {
     TagSet.asJava(this)
 }
 
-object TagSet extends CollectionConversionsVersionSpecific {
+object TagSet {
   val config: Config[TagSet] = Config.table(Config.string).map(TagSet.apply)
 
   private def asJava(tagSet: TagSet): com.mongodb.TagSet =
-    new com.mongodb.TagSet(seqAsJava(tagSet.tagSet.view.map(kv => new com.mongodb.Tag(kv._1, kv._2)).toList))
+    new com.mongodb.TagSet(tagSet.tagSet.view.map(kv => new com.mongodb.Tag(kv._1, kv._2)).toList.asJava)
 }
