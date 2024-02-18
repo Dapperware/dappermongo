@@ -29,6 +29,10 @@ case class MongoSettings(
 
 object MongoSettings {
 
+  val local = MongoSettings(
+    connectionString = Some(ConnectionString.unsafe("mongodb://localhost:27017"))
+  )
+
   val config: Config[MongoSettings] = {
     val connectionString = ConnectionString.config.nested("connectionString").optional
     val applicationName  = Config.string("applicationName").optional

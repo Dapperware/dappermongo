@@ -1,8 +1,9 @@
 package dappermongo
 
+import scala.jdk.CollectionConverters._
+
 import com.mongodb.client.model.{CreateIndexOptions, IndexModel, Indexes}
 import com.mongodb.reactivestreams.client.{ClientSession, MongoDatabase}
-import dappermongo.internal.CollectionConversionsVersionSpecific
 import java.util
 import org.bson.conversions.Bson
 import reactivemongo.api.bson.BSONDocumentReader
@@ -31,7 +32,7 @@ trait IndexBuilder[-R] {
 
 }
 
-object IndexBuilder extends CollectionConversionsVersionSpecific {
+object IndexBuilder {
   case class Impl(database: MongoDatabase, sessionStorage: SessionStorage[ClientSession])
       extends IndexBuilder[Collection] {
     override def list[T](implicit ev: BSONDocumentReader[T]): ZStream[Collection, Throwable, T] =
@@ -54,7 +55,7 @@ object IndexBuilder extends CollectionConversionsVersionSpecific {
         session    <- sessionStorage.get
         collection <- ZIO.service[Collection]
         jcollection = database.getCollection(collection.name)
-        jIndexes    = seqAsJava(indexes.map(toIndexModel))
+        jIndexes    = indexes.map(toIndexModel).asJava
         _ <- session
                .fold(jcollection.createIndexes(jIndexes, options))(
                  jcollection.createIndexes(_, jIndexes, options)
@@ -91,7 +92,7 @@ object IndexBuilder extends CollectionConversionsVersionSpecific {
         case Index.Geo2D(field)        => Indexes.geo2d(field)
         case Index.Geo2DSphere(fields) => Indexes.geo2dsphere(fields: _*)
         case Index.Compound(indexes) =>
-          Indexes.compoundIndex(new util.ArrayList[Bson](collectionAsJava(indexes.map(go))))
+          Indexes.compoundIndex(new util.ArrayList[Bson](indexes.map(go).asJava))
       }
 
       new IndexModel(go(index))

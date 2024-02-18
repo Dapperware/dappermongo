@@ -1,7 +1,9 @@
 package dappermongo
+import scala.jdk.CollectionConverters._
+
 import com.mongodb.reactivestreams.client.{ClientSession, MongoDatabase}
 import dappermongo.aggregate.Pipeline
-import dappermongo.internal.{CollectionConversionsVersionSpecific, _}
+import dappermongo.internal._
 import org.bson.RawBsonDocument
 import reactivemongo.api.bson.msb._
 import reactivemongo.api.bson.{BSON, BSONDocumentReader, BSONDocumentWriter}
@@ -57,8 +59,7 @@ object AggregateBuilder {
     pipeline: Pipeline,
     options: AggregateBuilderOptions,
     sessionStorage: SessionStorage[ClientSession]
-  ) extends AggregateBuilder[Collection]
-      with CollectionConversionsVersionSpecific {
+  ) extends AggregateBuilder[Collection] {
 
     override def allowDiskUse(allowDiskUse: Boolean): AggregateBuilder[Collection] =
       copy(options = options.copy(allowDiskUse = Some(allowDiskUse)))
@@ -115,11 +116,7 @@ object AggregateBuilder {
       session: Option[ClientSession]
     ) = ZIO.attempt {
       val underlying = database.getCollection(collection.name, classOf[RawBsonDocument])
-      val encoded = listAsJava(
-        pipeline.stages.reduceMapLeft(stage => List(fromDocument(BSON.writeDocument(stage).get))) { (acc, stage) =>
-          acc ++ List(fromDocument(BSON.writeDocument(stage).get))
-        }
-      )
+      val encoded    = pipeline.toList.map(_.map(fromDocument).asJava).get
 
       val hint    = options.hint.map(_.apply()).map(_.map(fromDocument).get)
       val comment = options.comment.map(_.apply()).map(_.map(fromDocument).get)

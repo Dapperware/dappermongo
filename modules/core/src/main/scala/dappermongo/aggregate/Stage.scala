@@ -260,8 +260,6 @@ object Stage {
       BSONDocumentWriter[Skip] { skip =>
         document("$skip" -> skip.skip)
       }
-
-    implicit val combiner: CanFollow[Skip] = new CanFollow[Skip]
   }
 
   final case class SortByCount[B](path: B, writer: BSONWriter[B]) extends Stage {
